@@ -258,7 +258,7 @@ Rules a tool can check **should** be enforced by a tool rather than by review or
 | Mutation testing | Tests catch real changes in core and library code. | A project-set mutation score; the scheduled run fails below it | Should |
 | Change risk (CRAP) | Functions that are both complex and poorly tested. No common tool exists; a small project-specific tool may compute it from coverage and complexity reports. | At most 30 per function | May |
 | Secrets | No committed secrets, scanned in pre-commit and CI (for example gitleaks). | Zero findings | Must |
-| Duplication | Copy-pasted blocks (for example jscpd), tuned so the rule of three still holds. | Project-defined | May |
+| Duplication | Copy-pasted blocks (for example jscpd, or rev-dep in TypeScript), tuned so the rule of three still holds. | Project-defined | May |
 | Unhandled results | Ignored errors, results, and promises (see Robustness). | Zero findings | Must |
 | Per-file maintainability | One score per file combining complexity measures (TypeScript: FTA). | Below 50 | Should |
 
@@ -489,8 +489,9 @@ Tools for the checks in Static analysis:
 | Typechecking | `tsc --noEmit` |
 | Linting | [oxlint](https://oxc.rs) |
 | Formatting | [oxfmt](https://oxc.rs) |
-| Dependency rules | [dependency-cruiser](https://github.com/sverweij/dependency-cruiser) |
-| Dead code | [knip](https://knip.dev) |
+| Dependency rules | [rev-dep](https://rev-dep.com): module boundaries, restricted imports, circular imports |
+| Dead code | rev-dep: orphan files, unused exports, unused dependencies. [knip](https://knip.dev) **may** be added for unused class and enum members, which rev-dep does not detect. |
+| Duplication | rev-dep |
 | Complexity (per function) | oxlint's `eslint/complexity` rule with `max` set to 10 (its default is 20) |
 | Per-file maintainability | [FTA](https://github.com/sgb-io/fta) (Halstead and cyclomatic measures) |
 | Test coverage | Vitest coverage (`@vitest/coverage-v8`), line and branch |
@@ -498,7 +499,7 @@ Tools for the checks in Static analysis:
 | Mutation testing | [StrykerJS](https://stryker-mutator.io) |
 | Change risk (CRAP) | No common tool; compute from coverage and complexity reports |
 | Unhandled results | oxlint's type-aware `no-floating-promises` with `ignoreVoid` set to false (its default is true) |
-| Secrets, duplication | Language-agnostic tools (see Static analysis) |
+| Secrets | Language-agnostic tools (see Static analysis) |
 
 ## Language notes: Go (provisional)
 
