@@ -501,7 +501,7 @@ Applies to design docs, PR descriptions, reviews, and agent output alike.
 - Notes about other work **should** go on that work's issue, not in the PR.
 - PRs **should** open as drafts.
 - Independent findings **should** get one issue each, or a tracking issue with a checklist.
-- When several PRs share an issue, the last one to merge **should** close it. Where closing keywords don't fire (PRs into a non-default branch), close it by hand on merge or automate it.
+- When several PRs share an issue, the last one to merge **should** close it. Where closing keywords do not fire (PRs into a non-default branch), close it by hand on merge or automate it.
 - Negative results (checked, nothing found) **should** be recorded on the issue.
 
 ## Merge gates
