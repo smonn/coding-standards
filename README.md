@@ -2,6 +2,7 @@
 
 My standards for code I write or review, by hand or with AI agents.
 
-Read [CODING_STANDARDS.md](CODING_STANDARDS.md), starting with its [table of contents](CODING_STANDARDS.md#contents). Technical rules come first, followed by contribution and review workflow, then a language-and-tool appendix for TypeScript, Go, and Rust. Go and Rust guidance is provisional.
+- [CODING_STANDARDS.md](CODING_STANDARDS.md) contains the complete rules, with a [table of contents](CODING_STANDARDS.md#contents). Technical rules come first, then contribution and review workflow, then language guidance and tools. Go and Rust guidance is provisional.
+- [GUIDE.md](GUIDE.md) explains the choices and provides extra examples. It adds no rules; the standards take precedence.
 
-The standards remain a single file for downstream syncing. Agent instruction files should reference the standards instead of copying them. Propose changes through a pull request.
+Downstream repositories sync only `CODING_STANDARDS.md`. Its guide links work without copying the guide. Agent instruction files reference the standards rather than duplicate them. Propose changes through a pull request.
