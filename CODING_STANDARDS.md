@@ -104,7 +104,7 @@ Default to functional core, imperative shell. Business logic determines domain o
 - The core **must not** directly use clock, randomness, filesystem, network, database, environment, or other IO APIs. The shell passes their values in (for example current time) and executes effects returned as values.
 - The core **should** depend only on the standard library and project code. Allowed dependencies (for example a decimal library where the standard one is inadequate) **must** be deliberate, documented, wrapped behind project-owned operations and types, and in the dependency check's allowlist. Vendor types **must** stay inside the wrapper; aliases or re-exports alone do not qualify. Wrapping the operations used is enough. Where the checker supports per-path allowlists, it **must** allowlist the package only for its wrapper's path.
 - IO, mutation, and external calls **should** live in thin orchestration at the edges.
-- External dependencies (for example a database) **should** sit behind application-owned ports, implemented by adapters. Third-party types **should not** leak past adapters.
+- External dependencies (database, IdP, email, payments, queues) **should** sit behind application-owned ports, implemented by adapters. Third-party types **should not** leak past adapters.
 - Adapters **should** map database rows and ORM entities to domain objects.
 - HTTP handlers, CLI commands, and job runners **must not** contain business logic. They parse and check input, call use cases, and map results to responses.
 - Dependencies **must** point inward: shell to core, never reverse.
@@ -233,7 +233,7 @@ Project rules and language idioms **must** override these casing defaults and na
 *Why:* compiler enforcement saves review and testing effort.
 
 - The strictest practical compiler or checker settings **should** be on.
-- Checking escape hatches (TypeScript `any`, unnecessary Rust `unsafe`) **must not** silence the compiler. Use the top type (`unknown` in TypeScript) and narrow. Go's `any` follows [Go guidance](#go-provisional).
+- Escape hatches that disable checking (TypeScript `any`, unnecessary Rust `unsafe`) **must not** be used to silence the compiler. Use the top type (`unknown` in TypeScript) and narrow. Go's `any` follows [Go guidance](#go-provisional).
 - Unchecked assertions **should** be a last resort. Each **must** explain its safety and why inference or narrowing cannot establish it. Checked conversions need no assertion justification. Potentially lossy conversions **must** check the valid range or document why loss is intentional.
 - Suppression directives (`@ts-ignore`, `#[allow(...)]`, `//nolint`) **must** explain why and what would remove the need. Approval and records follow [Exceptions](#exceptions).
 - Non-null assertions or unwraps **must not** be used on values that can legitimately be absent at runtime; handle absence explicitly.
@@ -453,7 +453,7 @@ For design docs, PR descriptions, reviews, and agent output:
 
 - Reasoning **should** separate observe, evaluate, analyze, synthesize, communicate phases; scale rigor to reversibility and impact.
 - Observation **must** be separate from interpretation: "the handler calls the DB three times" versus "the handler is slow" until measured.
-- Confidence, tradeoffs, and knowledge gaps **should** be explicit. Prefer precise, falsifiable claims; avoid vague generalizations and absolutes. Issue and PR facts **should** cite measurements (tool versions for tool behavior) or be labeled unmeasured. Results tables contain only measured cases.
+- Confidence, tradeoffs, and knowledge gaps **should** be explicit. Prefer precise, falsifiable claims; avoid vague generalizations and absolutes. Factual claims in issues and PRs **should** cite measurements (tool versions for tool behavior) or be labeled unmeasured. Results tables contain only measured cases.
 - Tradeoffs **must** name both sides, without silently choosing.
 - Ambiguous requirements **should** get numbered options, not guesses, in conversations, issues, and PRs. When a measurable fact decides, measure first and include the data.
 - Output **should** be dry and plain, moderate-to-high detail, without recapping.
