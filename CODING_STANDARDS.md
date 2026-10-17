@@ -53,7 +53,7 @@ Compliance covers applicable capabilities: libraries need not add servers, datab
 - **Should**: strong default; exceptions need a stated reason.
 - **May**: option worth considering; neither choice needs justification.
 
-Every binding rule has a level, stated or inherited. An unleveled instruction takes the level of the rule it implements, in the same bullet or paragraph or through its link. Conditions and follow-up steps attached to a May option bind whoever takes the option. Examples and rationale add no requirements. Automation preserves levels, even in required checks. Projects **may** override style, naming, and Should defaults with repository-recorded reasons; other Musts require scoped exceptions, never project-wide weakening. Projects **may** tighten any rule. [Exceptions](#exceptions) defines the process.
+Every binding rule has a level, stated or inherited. An unleveled instruction takes the level of the rule it implements, in the same bullet or paragraph or through its link. A May option applies only while its conditions and follow-up steps are met; otherwise the underlying rule applies at its own level. Examples and rationale add no requirements. Automation preserves levels, even in required checks. Projects **may** override style, naming, and Should defaults with repository-recorded reasons; other Musts require scoped exceptions, never project-wide weakening. Projects **may** tighten any rule. [Exceptions](#exceptions) defines the process.
 
 These standards stand alone; the optional [guide](https://github.com/smonn/coding-standards/blob/main/GUIDE.md) adds explanation and examples, never rules.
 
@@ -179,7 +179,7 @@ Code **should** default to functional core, imperative shell. Business logic det
 
 - User-facing changes **should** carry PR release notes (for example changesets); missing notes **should** fail a check. PRs without user-facing changes record that explicitly (for example empty changesets).
 - Versions and changelogs **should** be generated from those notes, not hand-edited.
-- CI **should** publish releases from a known commit after required and applicable conditional checks pass, using the exact checked artifact without rebuilding. Merge waivers do not authorize publication with failed checks. Credentials follow Supply chain (A03).
+- CI **should** publish releases from a known commit after required and applicable conditional checks pass, using the exact checked artifact without rebuilding. Publication with failed checks **must not** rely on merge waivers. Credentials follow Supply chain (A03).
 - Libraries **should** be tested as published: build with the release command, then load as consumers do from another project (for example both require and import).
 - Library toolchain bumps or structural refactors **should** show the public API (for example built type declarations), built syntax level, and built-ins unchanged against the base, or list every difference.
 - Release processes **should** document recovery when publishing fails after the version bump.
@@ -467,7 +467,7 @@ For design docs, PR descriptions, reviews, and agent output:
 - Larger refactors, renames, and reorganization outside the task **should not** accompany it. Fix blocking adjacent code minimally and explain; otherwise leave a contextual TODO under [Comments](#comments).
 - Structural changes (refactors, moves, renames) and behavioral changes **should** land in separate commits or PRs.
 - Refactoring **should** take small, behavior-preserving steps under green tests, passing after each step.
-- `refactor:` commits **must not** change behavior; behavior changes are `feat:` or `fix:`.
+- `refactor:` commits **must not** change behavior; under [Conventional Commits](#commits-and-branches), behavior changes are `feat:` or `fix:`.
 - Logic changes **must** include tests in the same PR. Independent test work **may** land first, such as characterization tests before refactoring untested code.
 - Every PR **must** leave main working, including each stacked PR.
 - Each new API **should** include a usage in its PR.
@@ -524,7 +524,7 @@ Adapted for authors and reviewers from [Google's engineering practices](https://
 - **Style.** Preferences outside formatter, linter, and standards **should not** block PRs.
 - **Speed.** Reviewers **should** respond within one business day at their next break point, not mid-task. Prioritize response speed over merge time; when full review waits, promptly give its timing or broad design comments.
 - **Approve with comments.** Reviewers **may** approve with minor or optional comments or when trusting the author to address them. Say which applies.
-- **Disagreements.** Facts and data beat opinions; formatter and linter settle style. If authors demonstrate equally valid approaches through data or sound engineering principles, their choice wins. Otherwise codebase consistency wins unless it lowers code health.
+- **Disagreements** **should** be settled this way: facts and data beat opinions; formatter and linter settle style. If authors demonstrate equally valid approaches through data or sound engineering principles, their choice wins. Otherwise codebase consistency wins unless it lowers code health.
 - **Escalation.** Reviewers **should** consider the author could be right, seek consensus, then call the author and record the outcome on the PR. If unresolved, escalate to a tech lead or maintainer. Disagreement **should not** leave a PR unresolved.
 - **Replies.** Authors **should** respond calmly to comments about code, not themselves. Clarifications **should** become clearer code or useful [documentation](#comments), not only review replies.
 - **Vocabulary.** Reviews **may** use [Refactoring catalog](https://refactoring.com/catalog/) smells, such as Primitive Obsession, as shared vocabulary.
@@ -578,7 +578,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 
 ### Go (provisional)
 
-- Expected outcomes **should** return `error` values. Wrap each layer with context: `fmt.Errorf("load household %s: %w", id, err)`. Callers **should** branch using `errors.Is` and `errors.As`, never message strings.
+- Expected outcomes **should** return `error` values. Wrap each layer with context: `fmt.Errorf("load household %s: %w", id, err)` ([Errors](#errors)). Callers **should** branch using `errors.Is` and `errors.As`, never message strings.
 - Sentinel errors (`var ErrNotFound = errors.New(...)`) **may** represent conditions callers branch on.
 - `panic` is reserved for invariant violations; it **must not** be used for expected failures.
 - Domain code **should not** use `any` or `interface{}`; narrow with boundary type switches.
@@ -594,7 +594,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 
 ### Rust (provisional)
 
-- Expected outcomes **should** use `Result<T, E>`; libraries and the core **should** use typed error enums (such as `thiserror`). Opaque errors (`anyhow`) **may** serve binaries and the shell. Add context when propagating with `?`.
+- Expected outcomes **should** use `Result<T, E>`; libraries and the core **should** use typed error enums (such as `thiserror`). Opaque errors (`anyhow`) **may** serve binaries and the shell. Add context when propagating with `?` ([Errors](#errors)).
 - Invariant violations **must** use `assert!` or `panic!` with the invariant in the message.
 - For [absence violating an invariant](#types), `expect("...")` **may** replace `unwrap()`; its message states the invariant.
 - Every `unsafe` block **must** have a `// SAFETY:` comment explaining soundness.
