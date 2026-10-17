@@ -33,6 +33,6 @@ A policy change alters a rule's level, scope, trigger, exceptions, interpretatio
 - Use one branch and one draft PR per issue, branched from main, named `smonn/<issue>-<slug>`.
 - Commits and PR titles use Conventional Commits, normally `docs:`, with a brief why in the body and `Refs #<issue>`.
 - Record negative findings and retained rules, with reasons, on the issue or PR. A review that changes nothing is a valid outcome.
-- File independent findings as new issues instead of widening the current one.
+- Record related findings on the current issue or PR; ask before filing new issues.
 - When I ask you to work on an issue, that covers committing, pushing, and opening a draft PR for it. Implementation still waits for approved decisions. Otherwise, commit, push, and open PRs only when asked. Merging, closing issues, and labeling are mine.
 - Leave commits and PR descriptions free of AI attribution.
