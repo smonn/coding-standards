@@ -260,7 +260,7 @@ Project rules and language idioms **must** override these casing defaults and na
 
 - New behavior **should** start with a failing test (red, green, refactor); user-facing features **should** start with acceptance tests, mostly against use cases or the API. Only critical user flows need a browser (see UI).
 - Pure logic, including UI formatters, reducers, derived state, and functions behind hooks, **should** have fast unit tests. The shell **should** have a few focused integration tests against real dependencies (for example a real database).
-- **Test doubles.** Except for documented legacy cases below, stubs (canned responses), mocks (interaction expectations), and fakes (working simplified implementations) **must** replace only systems or facilities the application does not own: network, filesystem, clock, third-party services. Fakes **should** be preferred where practical. Keep real internal collaborators.
+- **Test doubles.** Except for documented legacy cases below, stubs (canned responses), mocks (interaction expectations), and fakes (working simplified implementations) **must** replace only systems or facilities the application does not own: network, filesystem, clock, third-party services. Fakes **should** be preferred where practical.
 - **Internal doubles signal a design smell.** Wanting to replace an internal collaborator **should** prompt moving logic into the core. Where a legacy refactor is not yet practical, an internal double **may** be used with a PR-recorded reason and tracked follow-up link; no Must-level approval is needed.
 - Tests **should** use arrange, act, assert, with one concept per test.
 - **Names** **should** read `should <expected behavior> when <condition>`.
@@ -578,7 +578,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 
 ### Go (provisional)
 
-- Expected outcomes **should** return `error` values. Wrap each layer with context: `fmt.Errorf("load household %s: %w", id, err)` ([Errors](#errors)). Callers **should** branch using `errors.Is` and `errors.As`, never message strings.
+- Expected outcomes **should** return `error` values. Each layer **must** wrap errors with context: `fmt.Errorf("load household %s: %w", id, err)` ([Errors](#errors)). Callers **should** branch using `errors.Is` and `errors.As`, never message strings.
 - Sentinel errors (`var ErrNotFound = errors.New(...)`) **may** represent conditions callers branch on.
 - `panic` is reserved for invariant violations; it **must not** be used for expected failures.
 - Domain code **should not** use `any` or `interface{}`; narrow with boundary type switches.
@@ -594,7 +594,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 
 ### Rust (provisional)
 
-- Expected outcomes **should** use `Result<T, E>`; libraries and the core **should** use typed error enums (such as `thiserror`). Opaque errors (`anyhow`) **may** serve binaries and the shell. Add context when propagating with `?` ([Errors](#errors)).
+- Expected outcomes **should** use `Result<T, E>`; libraries and the core **should** use typed error enums (such as `thiserror`). Opaque errors (`anyhow`) **may** serve binaries and the shell. Propagation with `?` **must** add context ([Errors](#errors)).
 - Invariant violations **must** use `assert!` or `panic!` with the invariant in the message.
 - For [absence violating an invariant](#types), `expect("...")` **may** replace `unwrap()`; its message states the invariant.
 - Every `unsafe` block **must** have a `// SAFETY:` comment explaining soundness.
