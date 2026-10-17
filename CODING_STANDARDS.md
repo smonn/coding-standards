@@ -53,7 +53,7 @@ Applies to design docs, PR descriptions, reviews, and agent output alike.
 
 Simple over easy (in Rich Hickey's sense): fewer things braided together, even when the braided version is quicker to write.
 
-- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions solely for hypothetical future requirements. Upfront structure **may** address an identified risk of expensive retrofit when the decision states the evidence, deferred alternative, and present cost. A named pattern alone does not justify it.
+- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions for hypothetical future requirements. This does not apply to structure that is expensive to retrofit (ports for external dependencies, an outbox, message catalogs, value objects): it **may** be built up front, with the retrofit cost stated.
 - **Rule of three for DRY.** You **should** abstract duplication only once it reveals a real pattern, usually on the third occurrence. Two similar blocks are cheaper than a wrong abstraction.
 - **Simplest correct solution.** You **should** pick the simplest approach that solves the problem correctly. Between two approaches of similar complexity, pick the more readable one. Cleverness needs a measured reason (see Performance).
 - **Pure functions, immutable data, explicit data flow.** You **should** prefer these over hidden state and side effects.
@@ -70,11 +70,11 @@ Simple over easy (in Rich Hickey's sense): fewer things braided together, even w
 
 The structural default is functional core, imperative shell (Gary Bernhardt, "Boundaries"). Most rules in Testing follow from it.
 
-Business logic determines domain outcomes and enforces domain invariants. Orchestration controls IO, retries, transactions, cancellation, and response mapping. Additional ports, types, and mappings **should** isolate an identified source of change, enforce an invariant, or simplify consumers; a boundary that does none of these **may** be omitted with the reason recorded.
+Business logic determines domain outcomes and enforces domain invariants. Orchestration controls IO, retries, transactions, cancellation, and response mapping. Ports for external dependencies remain the default below. Core-dependency wrappers and UI mappings follow their own rules below. Beyond those boundaries, additional boundaries **should** isolate an identified source of change, enforce an invariant, or simplify consumers; an additional boundary that does none of these **may** be omitted with the reason recorded.
 
 - **Functional core.** Business decisions **should** live in pure functions over values. The core takes already-loaded inputs and returns values, including descriptions of what to do next.
 - **No impure APIs in the core.** The core **must not** use clock, randomness, filesystem, network, database, environment, or other IO APIs directly. The shell reads them and passes values in (the current time, a generated ID, a seed). Effects go out as returned values for the shell to execute.
-- **No third-party dependencies in the core.** The core **should** depend only on the standard library and the project's own code. Allowed dependencies (for example a decimal library) **must** be documented with their reason and listed in the dependency check's allowlist. Wrapping their types follows the boundary criteria above; the allowlist does not exempt them from Dependencies.
+- **No third-party dependencies in the core.** The core **should** depend only on the standard library and the project's own code. It is the main value of the software, and a dependency there ties that value to someone else's releases, licensing, and security. Allowed dependencies (for example a decimal library where the standard one is inadequate) **must** be deliberate, documented, and wrapped behind the project's own types, and listed in the dependency check's allowlist.
 - **Imperative shell.** IO, mutation, and calls to external systems **should** live in a thin orchestration layer at the edges. The shell owns operational control flow and calls the core for business decisions.
 - **Ports and adapters.** External dependencies (database, IdP, email, payments, queues) **should** sit behind a port the application owns. Adapters implement ports. Third-party types **should not** leak past the adapter.
 - **Persistence models stay at the adapter.** Database rows and ORM entities are not domain objects. The adapter **should** map between them, so schema changes and domain changes stay independent.
@@ -113,7 +113,7 @@ Business logic determines domain outcomes and enforces domain invariants. Orches
 - **Everything bounded.** Every outbound call **must** have a timeout. Retries, queues, worker concurrency, caches, request body sizes, and query results **must** have explicit limits. Lists returned by APIs that can grow without bound **must** be paginated.
 - **Bound traversal of untrusted input.** Traversal of external trees or graphs **must** limit depth and total work or input size, whether recursive or iterative. Iteration avoids call-stack exhaustion but does not itself bound memory or runtime.
 - **Handle failure-bearing results.** Errors, failure-bearing result values, and designated must-use values **must** be handled or propagated. Intentional discards **must** be explicit and explain why they are safe. Promises **must** be awaited or returned to a responsible caller, or have a rejection handler; `void` alone does not handle rejection. A documented guarantee that a promise cannot reject **may** justify a scoped suppression.
-- **Automate detectable omissions.** The check suite **must** enable available ignored-error and unhandled-promise diagnostics. Tools detect specific omissions, not all semantic handling: TypeScript promise linting does not cover synchronous result unions, Go's `errcheck` does not prove assigned errors are handled, and Rust's `unused_must_use` covers annotated values and functions. Review **must** check the remaining paths.
+- **Automate detectable omissions.** The check suite **must** enable available ignored-error and unhandled-promise diagnostics. Tools detect specific omissions, not all semantic handling: TypeScript promise linting does not cover synchronous result unions, Go's `errcheck` does not prove assigned errors are handled, and Rust's `unused_must_use` covers annotated values and functions. Review **should** check the remaining paths.
 - **Smallest scope, immutable by default.** Bindings **should** be immutable (`const`, no `mut`) unless mutation is needed, and declared where they are used.
 - **Limit indirection.** `eval`, reflection-based dispatch, monkey patching, and macro-heavy code **should not** be used where plain code works. Control flow **should** be visible in the source.
 - **Assert what types cannot express.** Preconditions and postconditions the type system cannot capture **should** be checked with `invariant` (see Errors). There is no assertion density target.
@@ -164,7 +164,7 @@ Business logic determines domain outcomes and enforces domain invariants. Orches
 - Tests **should** be colocated with the code they test, in the language's form: a sibling `*.test.ts`, a `_test.go` file in the same package, or an in-file `#[cfg(test)]` module in Rust.
 - Functions **should** take few parameters. When the list grows, group related parameters into a named object or type.
 - Magic numbers and strings **should not** appear inline. Name them as constants, or as value objects when they carry a rule. Obvious values in obvious places (`0`, `1`, an empty string) are fine.
-- Files approaching roughly 200 lines (300 for tests), excluding imports and type-only declarations, **should** prompt a cohesion review. Extract only when the result improves interfaces or navigation; length alone does not justify splitting a coherent module. Projects **may** adjust these review signals.
+- Files **should** stay under roughly 200 lines, excluding imports and type-only declarations; test files under roughly 300. Split along cohesion lines, or record why the module is coherent at its size. Projects **may** override the numbers.
 
 ## Naming
 
@@ -220,7 +220,7 @@ Language specifics are under Language notes. The general rules:
 
 *Why:* failures will happen. They should be visible, specific internally, safe externally, and never silently corrupt state.
 
-- Internal errors **must** identify what failed and the expected versus actual state where useful, using only diagnostic fields allowed by Security. Identifiers are not automatically non-personal.
+- Internal errors **must** identify what failed and the expected versus actual state where useful, using only diagnostic fields allowed by Security. For example, `Chore 01HX3 not found in household 01HX9`, not `Not found`.
 - Client-facing errors **must not** leak internals: no stack traces, internal IDs, query details, or existence leaks (for example "user exists"). Return a stable error code the client can act on, and correlate it with the internal error through a request ID.
 - Expected outcomes (not found, rejected, conflict) **should** be values in the return type.
 - Invariant violations **must** throw (or panic) and abort the affected operation. A request or worker boundary **may** catch the failure to report it and isolate the operation; it **must not** resume work that depends on the violated invariant. The process **must** terminate when shared state can no longer be trusted. See the `invariant` helper under Language notes.
@@ -280,19 +280,19 @@ Rules a tool can check **should** be enforced by a tool. In the table, Level gov
 | Dependency rules | Core never imports shell or IO modules; no cycles; modules use public entry points. The third-party dependency default and allowlist follow Architecture at their stated levels. | Zero unresolved violations outside approved baselines or exceptions | Must |
 | Dead code | Unused files, exports, and dependencies. | Zero findings | Should |
 | Complexity | Per-function cyclomatic complexity (cognitive in Rust). Exhaustive matches over a union may be suppressed with a reason. | At most 10 per function (Rust: 25, cognitive); projects may require less | Should |
-| Changed-lines coverage | Coverage of added or modified executable lines and associated branches, where supported. Compare with a recorded base revision using the same coverage configuration and suite selection. | For each supported metric, at least the lower of base coverage and the target; use the target when the base measurement is absent or zero | Must |
+| Changed-lines coverage | Coverage of added or modified executable lines and associated branches, where supported. Compare with a recorded base revision using the same coverage configuration and suite selection. | For each supported metric, at least the lower of base coverage and the target; on a project with none yet, the first PR sets it | Must |
 | Coverage target | Project-wide line and branch coverage. | At least 90%; projects may require more | Should |
 | Mutation testing | Tests catch real changes in core and library code. | A project-set mutation score; the scheduled run fails below it | Should |
 | Change risk (CRAP) | Functions that are both complex and poorly tested. No common tool exists; a small project-specific tool may compute it from coverage and complexity reports. | At most 30 per function | May |
 | Secrets | No committed secrets, scanned in pre-commit and CI (for example gitleaks). | Zero findings | Must |
 | Duplication | Copy-pasted blocks (for example jscpd, or rev-dep in TypeScript), tuned so the rule of three still holds. | Project-defined | May |
 | Unhandled results | Detectable ignored failure-bearing or must-use values and unhandled promises (see Robustness); review covers the tool's gaps. | Zero unresolved findings | Must |
-| Per-file maintainability | An optional tool-specific score, used only when it adds actionable information beyond existing complexity checks. | Project-defined for the selected tool and version | May |
+| Per-file maintainability | One score per file combining complexity measures (TypeScript: FTA). | Below 50 | Should |
 | Package shape | A published library's entry points, types, and module formats resolve the way consumers load them. | Zero findings | Should |
 
 Changed-lines coverage does not guarantee project-wide non-regression: deleting covered code or changing execution of unchanged lines can lower total coverage. PRs **should** report project coverage separately and explain decreases. A metric with no eligible lines or branches is not applicable, not zero; unsupported metrics **must** be identified. Projects below the target **should** record an improvement plan.
 
-Every test **must** have an observable failure condition tied to its claimed behavior. Assertions may live in helpers or the test harness; compilation and expected-failure tests use their corresponding checks. Assertion-presence linting **may** detect omissions, but review **must** verify that the test can fail for the relevant defect. Coverage reports execution, not correctness (see [Test Coverage](https://martinfowler.com/bliki/TestCoverage.html)).
+Every test **must** contain at least one assertion, enforced by lint where available and by review otherwise. Assertion linting **must** be configured for helper and harness assertions. Review **should** check that the test can fail for the relevant defect. Coverage reports execution, not correctness (see [Test Coverage](https://martinfowler.com/bliki/TestCoverage.html)).
 
 The CRAP score (Change Risk Anti-Patterns; Savoia and Evans, 2007) combines both measures per function, with comp as cyclomatic complexity and cov as coverage from 0 to 1:
 
@@ -404,7 +404,7 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 **General**
 
 - Secrets **must not** be committed, logged, or shipped in client code. They come from the environment or a secret manager at runtime.
-- Diagnostic fields **should** be limited to those needed for operation. Personal data **should not** be logged; IDs can still identify people. Any justified inclusion **must** document its purpose, access restrictions, and retention, with redaction or pseudonymization where appropriate. These rules apply to errors and logs alike; secrets remain prohibited. See [OWASP logging guidance](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+- Diagnostic fields **should** be limited to those needed for operation. Personal data **should not** be logged. Log opaque internal IDs rather than direct identifiers (names, emails). A shared logging policy **must** record purpose, access, and retention for any personal data included, including pseudonymous IDs. Apply redaction or pseudonymization where appropriate. These rules apply to errors and logs alike; secrets remain prohibited. See [OWASP logging guidance](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
 - Test and development data **should** be synthetic or anonymized, never copied from production.
 - Input from outside the process **must** be parsed at the boundary (see Design principles).
 - Processes, services, and credentials **should** have the least privilege they need.
@@ -458,15 +458,16 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 
 **Where logic goes**
 
-- Components **should** handle presentation, with business decisions in the core. Extract substantial formatting, derived state, and mapping into pure functions; hooks or the framework's equivalent own fetching, effects, and local state.
+- Components **should** render, not decide. Logic **should** live in pure functions (formatting, derived state, mapping) and in hooks or the framework's equivalent (data fetching, effects, local state).
 - In React, the render scope **should** call hooks and pure functions and return markup. Business rules, data transformation, and effect orchestration **should not** be written inline in the component body.
 - Server state **should** come from a data-fetching layer, not be copied into component state.
 - Domain rules **must not** be re-implemented in the UI. Client-side validation is for user experience only; the server **must** still parse and authorize every request.
 
 **Data from the backend**
 
-- The frontend **should** map API responses at one boundary when transport types expose irrelevant detail, differ from presentation needs, or would spread likely API changes across components.
-- Shared DTOs **may** be used directly when they fit those needs; an identity mapping adds no isolation. Parsing untrusted input remains required regardless of whether the static type is shared.
+- The frontend **should** map API responses into its own types at one boundary, so components never read API types directly.
+- A DTO type layer shared with the backend **may** be the input to that mapping. It gives the mapping compile-time checks but does not replace it.
+- API shape changes that preserve meaning (a renamed or restructured field) then touch only the mapping, not components. Changes in meaning still reach the components that depend on it.
 
 **Forms**
 
@@ -487,12 +488,12 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 - Every interactive element **must** be reachable and operable by keyboard, with a visible focus indicator.
 - Images **must** have text alternatives (empty for decorative ones), and form controls **must** have labels.
 - Color **must not** be the only carrier of meaning, and contrast **must** meet AA.
-- UIs **should** work with screen readers: a logical heading structure, landmarks, an accessible name on every control, and announced status changes for async updates and errors (for example via live regions). An exception **must** record its current scope and reconsideration trigger; a UI lacking this support cannot claim WCAG 2.2 AA conformance.
+- UIs **should** work with screen readers: a logical heading structure, landmarks, an accessible name on every control, and announced status changes for async updates and errors (for example via live regions). Projects that explicitly do not, and never will, need screen reader support **may** skip this, with the decision recorded; they then do not meet WCAG 2.2 AA.
 - Accessibility lint rules **should** be on (for example oxlint's jsx-a11y rules), and automated checks (for example axe) **should** run in end-to-end tests. These catch a subset of issues; manual keyboard and screen reader passes cover the rest.
 
 **Internationalization**
 
-- User-facing strings **should** live in message catalogs. A project with no current localization requirement **may** defer catalogs with a recorded reason and reconsideration trigger.
+- User-facing strings **should** live in message catalogs, not inline in components. Projects that will never localize **may** skip this.
 - Dates, numbers, and currencies **must** be formatted with locale-aware APIs (for example `Intl`), never by string concatenation.
 - Messages with variables **should** use placeholders and plural rules (for example ICU message format), not concatenated fragments.
 - Layouts **should** tolerate text expansion and right-to-left scripts.
@@ -537,9 +538,9 @@ Tools for the checks in Static analysis:
 | Dead code | rev-dep: orphan files, unused exports, unused dependencies. [knip](https://knip.dev) **may** be added for unused class and enum members, which rev-dep does not detect. |
 | Duplication | rev-dep |
 | Complexity (per function) | oxlint's `eslint/complexity` rule with `max` set to 10 (its default is 20) |
-| Per-file maintainability | [FTA](https://github.com/sgb-io/fta), if useful beyond complexity checks; record the version and chosen threshold |
+| Per-file maintainability | [FTA](https://github.com/sgb-io/fta) (Halstead and cyclomatic measures) |
 | Test coverage | Vitest coverage (`@vitest/coverage-v8`), line and branch |
-| Test failure conditions | Review; `expect-expect` or `expect.hasAssertions()` can detect some missing assertions, with harness and helper conventions accounted for |
+| Every test asserts | An `expect-expect` lint rule configured for helper and harness assertions; `expect.hasAssertions()` can enforce assertion presence at runtime |
 | Mutation testing | [StrykerJS](https://stryker-mutator.io) |
 | Change risk (CRAP) | No common tool; compute from coverage and complexity reports |
 | Unhandled results | oxlint's type-aware `no-floating-promises` with `ignoreVoid` set to false; review synchronous failure-bearing results separately |
@@ -570,7 +571,7 @@ Tools for the checks in Static analysis:
 | Exhaustiveness | `exhaustive` via golangci-lint |
 | Unhandled results | `errcheck` via golangci-lint; review subsequent handling of assigned errors |
 | Test coverage | `go test -cover` (statement coverage only; no standard branch coverage tool) |
-| Test failure conditions | Review assertions, helpers, and harness outcomes |
+| Every test asserts | Assertion linting where available, configured for helper and harness assertions; review otherwise |
 | Mutation testing | `gremlins`, which is slow on large modules; no other well-maintained option is known |
 | Change risk (CRAP) | No common tool |
 | Secrets, duplication | Language-agnostic tools (see Static analysis) |
@@ -598,7 +599,7 @@ Tools for the checks in Static analysis:
 | Complexity | `clippy::cognitive_complexity`, enabled explicitly since it is allow-by-default. Rust uses cognitive instead of cyclomatic complexity, with clippy's default threshold of 25. |
 | Unhandled results | Compiler `unused_must_use` lint, denied by `-D warnings`; annotate project-defined must-use values and review remaining failure paths |
 | Test coverage | `cargo-llvm-cov` (branch coverage needs nightly) |
-| Test failure conditions | Review assertions, helpers, and harness outcomes |
+| Every test asserts | Assertion linting where available, configured for helper and harness assertions; review otherwise |
 | Mutation testing | `cargo-mutants` |
 | Change risk (CRAP) | No common tool |
 | Secrets, duplication | Language-agnostic tools (see Static analysis) |
