@@ -318,7 +318,7 @@ Tool-checkable rules **should** be automated. Table levels govern adoption and t
 
 The first measured PR **must** establish coverage for new or existing unmeasured projects; measured zero is valid. Missing established base measurements **must** be recovered or covered by a valid gate waiver; they **must not** reset the floor. For each supported metric, while project coverage is below its target, changed-lines coverage **should** meet that target; every shortfall needs a PR-stated reason.
 
-Changed-lines coverage cannot guarantee project-wide non-regression: deleting covered code or changing execution of unchanged lines can lower totals. PRs **should** report project coverage separately and explain decreases. No eligible lines/branches means not applicable, not zero; unsupported metrics **must** be identified. Below-target projects **should** record an improvement plan.
+Changed-lines coverage cannot guarantee project-wide non-regression: deleting covered code or changing execution of unchanged lines can lower totals. PRs **should** report project coverage separately and explain decreases. No eligible lines/branches means not applicable, not zero. Unsupported metrics **must** be identified, with the reason, in the repository's coverage configuration or check definition; coverage results **should** report them as unsupported, not passed. Below-target projects **should** record an improvement plan.
 
 ## Dependencies
 
