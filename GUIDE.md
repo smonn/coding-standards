@@ -110,6 +110,66 @@ Google warns that cleaning up later is a common way for codebases to degrade. Th
 
 The [Refactoring catalog](https://refactoring.com/catalog/) provides names for discussing code smells: Primitive Obsession, Data Clumps, Feature Envy, and Shotgun Surgery. These names provide shared vocabulary.
 
+## Language tools
+
+[Standards](CODING_STANDARDS.md#language-guidance-and-tools)
+
+These tools are suggestions for the [checks](CODING_STANDARDS.md#static-analysis-and-deterministic-checks). Any tool that enforces the same outcomes and thresholds works. Settings and tool gaps that affect how a rule applies stay in the standards' language guidance.
+
+### Shared tools
+
+| Check | Suggested tool |
+| --- | --- |
+| Secrets | [gitleaks](https://github.com/gitleaks/gitleaks) |
+| Duplication | [jscpd](https://github.com/kucherenko/jscpd), tuned to the rule of three |
+
+### TypeScript tools
+
+| Check | Suggested tool |
+| --- | --- |
+| Typechecking | `tsc --noEmit` |
+| Linting | [oxlint](https://oxc.rs) |
+| Formatting | [oxfmt](https://oxc.rs) |
+| Dependency rules | [rev-dep](https://rev-dep.com): module boundaries, restricted imports, circular imports |
+| Dead code | rev-dep: orphan files, unused exports and dependencies; [knip](https://knip.dev) for unused class and enum members |
+| Duplication | rev-dep |
+| Complexity (per function) | oxlint `eslint/complexity`, `max: 10` (default: 20) |
+| Per-file maintainability | [FTA](https://github.com/sgb-io/fta) (Halstead and cyclomatic measures) |
+| Test coverage | Vitest (`@vitest/coverage-v8`), line and branch |
+| Every test asserts | `expect-expect` lint rule; `expect.hasAssertions()` checks presence at runtime |
+| Mutation testing | [StrykerJS](https://stryker-mutator.io) |
+| Unhandled results | Type-aware oxlint `no-floating-promises`, `ignoreVoid: false` |
+| Package shape | publint and attw (@arethetypeswrong/cli) on the packed package |
+
+### Go tools
+
+| Check | Suggested tool |
+| --- | --- |
+| Formatting | `gofmt` or `goimports` |
+| Linting | `go vet` plus `golangci-lint` (including `staticcheck`) |
+| Typechecking | The compiler |
+| Dependency rules | `depguard` via golangci-lint |
+| Dead code | `unused` via golangci-lint; `deadcode` from golang.org/x/tools |
+| Complexity | `gocyclo` or `cyclop` via golangci-lint |
+| Exhaustiveness | `exhaustive` via golangci-lint |
+| Unhandled results | `errcheck` via golangci-lint |
+| Test coverage | `go test -cover` |
+| Mutation testing | `gremlins`; its runtime on the project determines a practical schedule |
+
+### Rust tools
+
+| Check | Suggested tool |
+| --- | --- |
+| Formatting | `rustfmt` |
+| Linting | `clippy` with warnings as errors (`-D warnings`) |
+| Typechecking | The compiler |
+| Dependency rules | `cargo-deny` for third-party dependencies |
+| Dead code | Compiler `dead_code`; `cargo-machete` or `cargo-udeps` for unused dependencies |
+| Complexity | `clippy::cognitive_complexity`, default threshold 25 |
+| Unhandled results | Compiler `unused_must_use` |
+| Test coverage | `cargo-llvm-cov` |
+| Mutation testing | `cargo-mutants` |
+
 ## CRAP scoring
 
 [Standards](CODING_STANDARDS.md#shared-checks)
