@@ -41,13 +41,13 @@ Oct 16, 2026 · [smonn](https://github.com/smonn)
 
 ## Purpose and scope
 
-*Why:* code is judged by its quality, with ownership staying with the person who submits it regardless of the tool used.
+*Why:* code is judged by quality; submitters own it regardless of tools.
 
-These are my recommended standards for code I write or review, by hand or with AI agents. They are language agnostic unless stated otherwise; language-specific rules take precedence over general language guidance. Audit and regulatory requirements (for example SOC 2) tighten these standards, never loosen them.
+My recommended standards for code I write or review, by hand or with AI agents. Language-specific rules override general language guidance; otherwise these standards are language agnostic. Audit and regulatory requirements (for example SOC 2) tighten these standards, never loosen them.
 
-Authors own their changes and **must** understand, explain, and defend them in review. AI-generated code **must** meet the same standards; scrutiny depends on demonstrated understanding. AI disclosure, including attribution trailers, follows project rules.
+Authors own their changes and **must** understand them well enough to explain and defend them in review. AI-generated code **must** meet the same standards; scrutiny depends on demonstrated understanding. AI disclosure, including attribution trailers, follows project rules.
 
-Only applicable capabilities need compliance: libraries need not add servers, databases, or UIs. Scripts and prototypes are not exempt by size. Generated and vendored files **may** skip style and maintainability checks if the repository records their source and regeneration/update process; security and build checks still apply.
+Compliance covers applicable capabilities: libraries need not add servers, databases, or UIs. Size does not exempt scripts or prototypes. Generated and vendored files **may** skip style and maintainability checks if the repository records their source and regeneration/update process; security and build checks still apply.
 
 - **Must**: hard constraint, verifiable from the diff, by a tool, or by repository configuration. Exceptions need approval.
 - **Should**: strong default; exceptions need a stated reason.
@@ -59,10 +59,10 @@ These standards stand alone; the optional [guide](https://github.com/smonn/codin
 
 ## Exceptions
 
-*Why:* a recorded exception makes a rule's limits visible without silently weakening it for other code.
+*Why:* recorded exceptions expose a rule's limits without silently weakening it elsewhere.
 
-- **Terms.** A change is one PR. Exceptions record the rule, affected code/check, and reason. They apply only to that scope, including after merge, until removed or reconsidered.
-- **Should exceptions** record the rule and reason in the PR description.
+- **Terms.** A change is one PR. Exceptions record the rule, affected code/check, and reason. They remain scoped, including after merge, until removed or reconsidered.
+- **Should exceptions** use PR descriptions.
 - **Must exceptions** need review approval. Those persisting after merge **must** have a repository record: inline suppression, configuration comment, or exceptions file. PR-scoped waivers use the PR record. Temporary exceptions **must** link an issue with owner and removal condition from affected code, configuration, exception record, or waiver. Permanent exceptions **must** explain inapplicability and reconsideration conditions; violations needing repair remain temporary. Changed assumptions or scope **must** prompt reconsideration at the original level.
 - **Approval** comes from another reviewer; solo maintainers approve their own exceptions and record that in the PR. AI reviews never count as approval.
 - **Suppressions**, inline or configured (including `skipLibCheck` and path ignores), **must** carry reasons and required exception references. Stale ignores **should** fail checks. Suppressions follow the underlying rule's level. Formatting and unsuppressed compiler errors cannot be waived; type-check suppressions follow [Types](#types).
@@ -77,11 +77,11 @@ Product, business, and customer needs drive features and inform implementation. 
 
 ## Design principles
 
-*Why:* most software cost comes from change, so these principles keep the next change cheap.
+*Why:* change dominates software cost; these principles keep the next change cheap.
 
-Simple over easy (Rich Hickey): fewer things braided together, even when braiding is quicker to write.
+Simple over easy: fewer things braided together, even when braiding is quicker to write.
 
-- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions for hypothetical requirements. Retrofit-expensive structure is an exception: external-dependency ports, an outbox, message catalogs, and value objects **may** be built upfront with a recorded, concrete project-specific consequence of deferral. Other upfront structure **may** proceed with recorded evidence of retrofit risk, deferred alternative, and present cost. Concrete qualitative evidence suffices; measure when a measurable fact decides.
+- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions for hypothetical requirements. Exception: external-dependency ports, an outbox, message catalogs, and value objects **may** be built upfront with a recorded, concrete project-specific retrofit consequence of deferral. Other upfront structure **may** proceed with recorded evidence of retrofit risk, deferred alternative, and present cost. Concrete qualitative evidence suffices; measure when a measurable fact decides.
 - **DRY.** You **should** abstract duplication only once a real pattern emerges, usually on the third occurrence.
 - You **should** choose the simplest correct approach, preferring readability between similarly complex alternatives. Cleverness needs a measured reason (see Performance).
 - **Pure functions, immutable data, explicit data flow.** You **should** prefer these over hidden state and side effects.
@@ -98,26 +98,26 @@ Simple over easy (Rich Hickey): fewer things braided together, even when braidin
 
 *Why:* isolating the core business value from IO and vendors keeps it testable, portable, and cheap to change.
 
-Default to functional core, imperative shell (Gary Bernhardt, "Boundaries"). Business logic determines domain outcomes and enforces invariants; orchestration controls IO, retries, transactions, cancellation, and response mapping. External-dependency ports are the default; core wrappers and UI mappings follow their own rules. Additional boundaries **should** isolate an identified source of change, enforce an invariant, or simplify consumers; otherwise they **may** be omitted with a recorded reason.
+Default to functional core, imperative shell. Business logic determines domain outcomes and enforces invariants; orchestration controls IO, retries, transactions, cancellation, and response mapping. External-dependency ports are the default; core wrappers and UI mappings follow their own rules. Additional boundaries **should** isolate an identified source of change, enforce an invariant, or simplify consumers; otherwise they **may** be omitted with a recorded reason.
 
 - **Functional core.** Business decisions **should** be pure functions of already-loaded values, returning values including descriptions of next actions.
 - The core **must not** directly use clock, randomness, filesystem, network, database, environment, or other IO APIs. The shell passes their values in (for example current time) and executes effects returned as values.
 - The core **should** depend only on the standard library and project code. Allowed dependencies (for example a decimal library where the standard one is inadequate) **must** be deliberate, documented, wrapped behind project-owned operations and types, and in the dependency check's allowlist. Vendor types **must** stay inside the wrapper; aliases or re-exports alone do not qualify. Wrapping the operations used is enough. Where the checker supports per-path allowlists, it **must** allowlist the package only for its wrapper's path.
-- IO, mutation, and external calls **should** live in thin orchestration at the edges. The shell controls operations and calls the core for business decisions.
+- IO, mutation, and external calls **should** live in thin orchestration at the edges.
 - External dependencies (for example a database) **should** sit behind application-owned ports, implemented by adapters. Third-party types **should not** leak past adapters.
 - Adapters **should** map database rows and ORM entities to domain objects.
 - HTTP handlers, CLI commands, and job runners **must not** contain business logic. They parse and check input, call use cases, and map results to responses.
-- Dependencies **must** point inward: shell to core, never reverse. Module cycles are defects.
-- **Bounded contexts.** You **should** split by real domain boundaries, not every product noun. Too many contexts obscure where new code belongs.
+- Dependencies **must** point inward: shell to core, never reverse.
+- **Bounded contexts.** Contexts **should** follow real domain boundaries, not every product noun.
 - **Modular monolith first.** You **should** prefer enforced module boundaries in one deployable over premature service splits.
-- Significant architectural decisions **should** get a short repository ADR: context, decision, consequences.
+- Significant architecture decisions **should** have short repository ADRs: context, decision, consequences.
 - **Optimistic concurrency** **may** replace long transactions: an explicit integer version column, compared on write, retrying or aborting on mismatch.
 
 [Rationale and examples](https://github.com/smonn/coding-standards/blob/main/GUIDE.md#architecture).
 
 ## Contracts and migrations
 
-*Why:* other people's code depends on these shapes, and breaking them breaks systems you cannot see.
+*Why:* breaking contracts breaks other people's code in unseen systems.
 
 - Public contracts (HTTP APIs, library exports, package metadata (entry points, types, supported runtimes), event/message schemas, persisted file formats, CLI flags/output) **must** stay backward compatible within a supported contract version. Breaking changes **must** be announced and introduce an explicitly identified new contract version; external consumers **should** get a deprecation period before the old version retires.
 - Libraries **should** follow Semantic Versioning. Dropping a supported runtime is breaking. CI **should** run the lowest supported runtime.
@@ -126,10 +126,10 @@ Default to functional core, imperative shell (Gary Bernhardt, "Boundaries"). Bus
 
 ## Background work and integrations
 
-*Why:* requests should stay fast and predictable, and calls to systems you do not control will fail in ways you cannot prevent.
+*Why:* requests need speed and predictability despite unavoidable failures in external calls.
 
-- Work not needed before responding (for example email) **should** run in background workers. Required synchronous integrations still follow timeout and retry rules.
-- A committed state change requiring a reliable external effect **should** use a transactional outbox: store delivery intent in the same transaction, then deliver asynchronously. Atomicity covers state and intent; remote delivery can be delayed or fail. Read-only integrations need no outbox. [Pattern](https://microservices.io/patterns/data/transactional-outbox.html).
+- Work not needed before responding (for example email) **should** run in background workers. Synchronous integrations still follow timeout and retry rules.
+- Committed state changes requiring reliable external effects **should** use transactional outboxes: commit delivery intent in the same transaction, then deliver asynchronously. Atomicity covers state and intent; remote delivery can be delayed or fail. Read-only integrations need no outbox. [Pattern](https://microservices.io/patterns/data/transactional-outbox.html).
 - Inbound events allowing asynchronous handling **should** use an inbox: authenticate under Security, store durably, acknowledge, process. Deduplication keys **must** include sender or subscription scope unless message IDs are globally unique.
 - Workers that can receive duplicate deliveries **must** make effects idempotent. Deduplication state and local effects **must** commit atomically; remote effects need idempotency at the receiving boundary (see Errors).
 - Inbox and outbox retention **must** be bounded, with separate payload and deduplication-key policies. The deduplication window **must** cover supported retries and replays. Unneeded raw payloads **should** be purged or redacted.
@@ -139,21 +139,19 @@ Default to functional core, imperative shell (Gary Bernhardt, "Boundaries"). Bus
 
 *Why:* explicit bounds and checked results turn failures at system limits and unchecked paths into handled cases.
 
-Adapted from NASA/JPL's "Power of 10" rules.
-
 - Outbound calls **must** have timeouts. Retries, queues, worker concurrency, caches, request body sizes, and query results **must** have explicit limits. Potentially unbounded API lists **must** be paginated.
 - External tree or graph traversal **must** limit depth and total work or input size, recursive or iterative. Iteration avoids call-stack exhaustion but does not bound memory or runtime.
 - Errors, failure-bearing results, and designated must-use values **must** be handled or propagated. Intentional discards **must** be explicit and explain their safety. Promises **must** be awaited, returned to a responsible caller, or given a rejection handler; `void` alone does not handle rejection. A documented cannot-reject guarantee **may** justify scoped suppression.
 - Checks **must** enable available ignored-error and unhandled-promise diagnostics (see [Static analysis](#static-analysis-and-deterministic-checks)). Review **should** cover the tool's gaps; [Language guidance](#language-guidance-and-tools) identifies them.
 - Bindings **should** be immutable (`const`, no `mut`) unless mutation is needed, and declared where used.
 - **Limit indirection.** `eval`, reflection-based dispatch, monkey patching, and macro-heavy code **should not** be used where plain code works. Control flow **should** be visible in source.
-- Preconditions and postconditions beyond the type system **should** use `invariant` checks (see Errors). There is no assertion density target.
+- Preconditions and postconditions beyond types **should** use `invariant` checks (Errors). There is no assertion density target.
 
 ## Performance
 
-*Why:* optimizing without measurement targets the wrong thing, and regressions without a budget go unnoticed until users feel them.
+*Why:* measurement prevents misdirected optimization; budgets expose regressions before users feel them.
 
-- **Measure before optimizing.** Performance claims and optimizations **should** have benchmarks or profiles showing the problem and gain. Benchmarks **should** use production-like input (distinct values, realistic sizes), not one value looped, and report memory and time. Keeping optimizations needs the same evidence.
+- **Measure before optimizing.** Performance claims and optimizations **should** have benchmarks or profiles demonstrating problems and gains. Benchmarks **should** use production-like input (distinct values, realistic sizes), not one value looped, and report memory and time. Keeping optimizations needs the same evidence.
 - **Budgets.** User-perceived performance **should** have repository budgets: key endpoints' p95 latency, UIs' JavaScript bundle size and Core Web Vitals. CI **should** check budgets where practical.
 - **No N+1 queries.** Per-request data access **should** be bounded and visible. New hot queries and indexes **should** be checked against their query plans.
 - Caches **must** state an invalidation strategy or acceptable staleness window. Keys **must** include every result-determining input. Caller-supplied functions' results are cached only when the contract states they are pure.
@@ -161,15 +159,15 @@ Adapted from NASA/JPL's "Power of 10" rules.
 
 ## Logging and metrics
 
-*Why:* operational logs and metrics need to reveal incidents without hiding their signal in noise.
+*Why:* operational logs and metrics reveal incidents without burying signals in noise.
 
 - Incidental debug logging **should not** be committed; Security (A02) sets production limits.
 - Logs **should** be structured (key/value) and carry request IDs (see Errors). Fields follow Security's data policy.
-- Incidental metrics and instrumentation **should not** be added unless requested. Instrumentation needed for budgets and alerting (Performance, Security) is fine.
+- Unrequested incidental metrics and instrumentation **should not** be added. Budget and alerting instrumentation (Performance, Security) is fine.
 
 ## Infrastructure and deployment
 
-*Why:* an environment that can only be rebuilt from memory cannot be reproduced, reviewed, or trusted.
+*Why:* environments relying solely on memory cannot be reproduced, reviewed, or trusted.
 
 - Infrastructure **must** be code (for example OpenTofu) changed through PRs like application code.
 - Environments **should** be reproducible from tracked definitions and documented prerequisites, including separately provisioned secrets and external services. Manual console changes are drift and **should** be codified or reverted.
@@ -177,18 +175,18 @@ Adapted from NASA/JPL's "Power of 10" rules.
 
 ## Releases
 
-*Why:* notes written with the change and publishing from CI make releases reproducible and reviewable for people who cannot see the repository.
+*Why:* notes accompanying changes and CI publishing make releases reproducible and reviewable without repository access.
 
-- User-facing changes **should** carry release notes in their PR (for example changesets). A check **should** fail PRs missing them. PRs without user-facing changes record that explicitly (for example empty changesets).
+- User-facing changes **should** carry PR release notes (for example changesets); missing notes **should** fail a check. PRs without user-facing changes record that explicitly (for example empty changesets).
 - Versions and changelogs **should** be generated from those notes, not hand-edited.
 - CI **should** publish releases from a known commit after required and applicable conditional checks pass, using the exact checked artifact without rebuilding. Merge waivers do not authorize publication with failed checks. Credentials follow Supply chain (A03).
-- Libraries **should** be tested as published: build with the release command, then load from a separate project as consumers do (for example both require and import). The Package shape check covers the rest.
+- Libraries **should** be tested as published: build with the release command, then load as consumers do from another project (for example both require and import).
 - Library toolchain bumps or structural refactors **should** show the public API (for example built type declarations), built syntax level, and built-ins unchanged against the base, or list every difference.
 - Release processes **should** document recovery when publishing fails after the version bump.
 
 ## Code organization
 
-*Why:* code that changes together should live together, so a feature can be understood and changed in one place.
+*Why:* colocating code that changes together makes features understandable and changeable in one place.
 
 - Top-level code **should** follow features or domains, not technical directories such as `controllers/`.
 - Within features, the technical split **should** apply: `billing/` holds core, shell, entry points, and tests. Infrastructure and genuinely generic shared helpers **should** live outside features.
@@ -199,10 +197,10 @@ Adapted from NASA/JPL's "Power of 10" rules.
 
 ## Naming
 
-*Why:* code is read far more than it is written, and names are the main interface for every reader, human or agent.
+*Why:* names are the main interface for humans and agents reading code far more often than writing it.
 
 - Variables and parameters **should** name domain concepts, not types or shapes: `household`, not `data`, `result`, `item`, or `record`.
-- Generic names (`temp`, `obj`, `val`, `res`, `info`) **must not** be used. Name the concept: `parseError`, `choreRow`. This excludes `err` or `error` in catch blocks with genuinely unknown types.
+- Generic names (`temp`, `obj`, `val`, `res`, `info`) **must not** be used. Name the concept: `parseError`, `choreRow`. Exception: `err` or `error` in catch blocks with genuinely unknown types.
 - Booleans and predicates **should** use `is`, `has`, or `can`: `isApproved`, not `approved`.
 - Functions **should** be verb-noun, describing the action: `approveChore`, not `choreApproval` or `doChore`. Factories **may** use `create` or `make`.
 - Event handlers **should** use `handle` for functions and `on` for props or callback slots.
@@ -222,21 +220,21 @@ Project rules and language idioms **must** override these casing defaults and na
 
 ## Comments
 
-*Why:* code that explains itself avoids comments that drift from what they describe.
+*Why:* clear code avoids comments that drift from it.
 
-- Comments **should** explain reasons or constraints code cannot express. Clarify confusing code first; opaque syntax or API workarounds **may** need brief explanations of what they do.
+- Comments **should** explain reasons or constraints code cannot express. Clarify confusing code first; opaque syntax or API workarounds **may** need brief explanations of behavior.
 - Workarounds and external constraints **must** carry reason comments. Assertions follow [Types](#types); suppressions follow [Exceptions](#exceptions).
-- Doc comments **should** cover contracts absent from signatures: units, effects, ownership, ordering, failures, guarantees. Avoid restating obvious operations or signature details. Document ambiguous parameters directly (is `rate` 0.07 or 7?).
-- Obvious operations **should not** get inline comments.
+- Doc comments **should** cover contracts absent from signatures: units, effects, ownership, ordering, failures, guarantees; avoid restating signature details. Document ambiguous parameters directly (is `rate` 0.07 or 7?).
+- Comments **should not** restate obvious operations.
 - TODOs **must** name remaining work, deferral reason, and tracking issue: `TODO(#456): handle timezone edge case after #123 lands`.
 
 ## Types
 
-*Why:* every rule the compiler enforces is one that review and tests no longer have to.
+*Why:* compiler enforcement saves review and testing effort.
 
 - The strictest practical compiler or checker settings **should** be on.
 - Checking escape hatches (TypeScript `any`, unnecessary Rust `unsafe`) **must not** silence the compiler. Use the top type (`unknown` in TypeScript) and narrow. Go's `any` follows [Go guidance](#go-provisional).
-- Unchecked assertions **should** be a last resort. Each **must** explain why inference or narrowing cannot establish the claim and why it is safe. Checked conversions need no assertion justification. Potentially lossy conversions **must** check the valid range or document intentional loss.
+- Unchecked assertions **should** be a last resort. Each **must** explain its safety and why inference or narrowing cannot establish it. Checked conversions need no assertion justification. Potentially lossy conversions **must** check the valid range or document why loss is intentional.
 - Suppression directives (`@ts-ignore`, `#[allow(...)]`, `//nolint`) **must** explain why and what would remove the need. Approval and records follow [Exceptions](#exceptions).
 - Non-null assertions or unwraps **must not** be used on values that can legitimately be absent at runtime; handle absence explicitly.
 - Exhaustiveness checking **must** cover sum-type matches. Where adding a variant must force a change, matches **must** handle every variant explicitly or use checked-unreachable branches. Language-required fallbacks, such as Rust's external `#[non_exhaustive]` enums, are exempt. See [Language guidance](#language-guidance-and-tools).
@@ -245,7 +243,7 @@ Project rules and language idioms **must** override these casing defaults and na
 
 ## Errors
 
-*Why:* failures will happen, so they should be visible, specific internally, safe externally, and never silently corrupt state.
+*Why:* inevitable failures need visibility, internal detail, external safety, and protection against silent state corruption.
 
 - Internal errors **must** identify what failed and expected versus actual state where useful, using only diagnostic fields allowed by Security: `Chore 01HX3 not found in household 01HX9`, not `Not found`.
 - Client-facing errors **must not** leak internals: stack traces, internal IDs, query details, existence leaks ("user exists"). Return stable actionable error codes, correlated to internal errors by request ID.
@@ -258,7 +256,7 @@ Project rules and language idioms **must** override these casing defaults and na
 
 ## Testing
 
-*Why:* tests make change safe, and a design that needs no internal mocks keeps them cheap and honest.
+*Why:* tests protect changes; avoiding internal mocks keeps tests cheap and honest.
 
 - New behavior **should** start with a failing test (red, green, refactor); user-facing features **should** start with acceptance tests, mostly against use cases or the API. Only critical user flows need a browser (see UI).
 - Pure logic, including UI formatters, reducers, derived state, and functions behind hooks, **should** have fast unit tests. The shell **should** have a few focused integration tests against real dependencies (for example a real database).
@@ -269,11 +267,11 @@ Project rules and language idioms **must** override these casing defaults and na
 - Tests, including end-to-end tests, **must not** depend on execution order or shared mutable state.
 - Every executable file (benchmarks, examples, scripts) **should** run in a check, even with minimal input. Code nothing runs **should** be deleted.
 - **Property-based tests** **may** cover pure core logic with clear invariants, such as roundtrips.
-- Every test **must** contain an assertion, enforced by lint where available, otherwise review. Assertion linting **must** recognize helper and harness assertions. Review **should** check that tests can fail for the relevant defect. Coverage measures execution, not correctness ([Test Coverage](https://martinfowler.com/bliki/TestCoverage.html)).
+- Every test **must** contain an assertion, enforced by lint where available, otherwise review. Assertion linting **must** recognize helper and harness assertions. Review **should** verify tests can fail for the relevant defect. Coverage measures execution, not correctness ([Test Coverage](https://martinfowler.com/bliki/TestCoverage.html)).
 
 ## Static analysis and deterministic checks
 
-*Why:* a failing check makes a written rule unambiguous, applies it consistently to humans and agents, and gives fast feedback inside an agent's loop.
+*Why:* failing checks clarify rules, enforce them consistently for humans and agents, and speed feedback in agent loops.
 
 Tool-checkable rules **should** be automated. Table levels govern adoption and thresholds; findings retain their originating rule's level. [Language guidance](#language-guidance-and-tools) maps outcomes to tools.
 
@@ -282,10 +280,10 @@ Tool-checkable rules **should** be automated. Table levels govern adoption and t
 - One entry point (for example `check`) **must** define the required suite, conditional checks with explicit applicability, and scheduled checks. Local and CI runs **must** use identical implementations and inputs for the same suite and revision. Partial local hooks **should** cover the same files, including every supported file type; hooks do not replace the completion gate.
 - Before completion, changes **must** pass required and applicable conditional checks or have CI-accepted valid waivers. Results **should** distinguish pass, fail, waived, and not run. Scheduled checks are outside this gate unless explicitly included. Configuration **must not** be loosened to pass a change, including disabling rules, narrowing file coverage, or adding ignores outside [Exceptions](#exceptions).
 - Without squash merges, each main-branch commit **should** pass code checks: fold red-test commits into their fixes. Per-PR checks apply to the last commit.
-- Results **should** depend on the revision, lockfiles, pinned toolchain, and declared inputs (comparison revision, PR metadata), not local state such as sub-project installed dependencies or caches. CI or checks **should** set up every sub-project from its lockfile. Gate authorization is separate from check results (see Gate waivers).
-- New checks **should** be demonstrated failing: deliberately break what they guard and record the result in the PR.
+- Results **should** depend on the revision, lockfiles, pinned toolchain, and declared inputs (comparison revision, PR metadata), not local state such as sub-project installed dependencies or caches. CI or checks **should** set up every sub-project from its lockfile.
+- New checks **should** demonstrably fail: deliberately break what they guard and record results in the PR.
 - CI changes that cannot run before merge **should** name a safe post-merge first run and expected result in the PR.
-- The repository **should** pin the development toolchain (for example `.nvmrc`); CI **should** use it and local checks **should** fail on other versions. Supported library runtimes remain part of the contract ([Contracts and migrations](#contracts-and-migrations)). Contributor-only requirements (package manager, toolchain) **should** stay out of consumer metadata, such as `engines`.
+- Repositories **should** pin development toolchains (for example `.nvmrc`); CI **should** use them and local checks **should** reject other versions. Supported library runtimes remain part of the contract ([Contracts and migrations](#contracts-and-migrations)). Contributor-only requirements (package manager, toolchain) **should** stay out of consumer metadata, such as `engines`.
 - Repositories **should** configure tools, including AI agents, when defaults conflict with project rules.
 - Checks **should** be fast enough for every iteration, including agent loops. Slow checks (mutation testing, full-repo analysis) **may** run on a schedule with a documented owner and failure-response process.
 - Findings **should** be errors or off.
@@ -324,19 +322,19 @@ Changed-lines coverage cannot guarantee project-wide non-regression: deleting co
 
 ## Dependencies
 
-*Why:* every dependency is code you run but did not write or review.
+*Why:* a dependency is executed code you neither wrote nor reviewed.
 
 These rules cover every dependency, including [core allowlist entries](#architecture):
 
 - Before addition, dependencies **must** be evaluated for maintenance activity, license, security history, transitive footprint, and whether a little own code suffices.
 - Versions **must** be pinned in committed metadata: ecosystem lockfiles where available (for example `pnpm-lock.yaml`); Go uses `go.mod` for versions and `go.sum` for checksums.
-- Projects **must** define scheduled automated update PRs or a documented manual cadence. Security patches **should** be applied promptly.
+- Projects **must** define scheduled automated update PRs (for example Renovate) or a documented manual cadence. Security patches **should** be applied promptly.
 - Updates **should** have PRs separate from feature work; automated updates **may** be grouped.
 - Blocked major upgrades **should** have an issue recording measured failures and a done-when condition; close the failing update PR.
 
 ## Security
 
-*Why:* security flaws are expensive to find late, so these rules target the classes that recur most.
+*Why:* these rules target recurring security flaws because late discovery is expensive.
 
 General practices, then [OWASP Top 10:2025](https://owasp.org/Top10/2025/) categories.
 
@@ -355,7 +353,7 @@ General practices, then [OWASP Top 10:2025](https://owasp.org/Top10/2025/) categ
 - Access **must** default to denied and be enforced server-side.
 - Every route **must** declare its authorization policy; routers **must** reject routes without one. Evaluation follows Exceptional conditions below.
 - Data access **must** enforce resource authorization for the caller, including applicable tenant or ownership constraints. Public, shared, and administrative access **must** be explicit policies, not resource-check bypasses.
-- Denials **should** return values (for example a 403), not throw: denial is expected.
+- Denials **should** return values (for example a 403), not throw.
 - Outbound requests to user-supplied URLs **must** enforce allowed schemes and destinations against actual connection addresses. Allowlist destinations or exclude internal/non-public ones; disable redirects or check every hop. DNS changes between validation and connection **must not** bypass policy. See [OWASP SSRF guidance](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
 
 **Configuration (A02).** Defaults **must** be secure. Production configuration **must not** enable debug output, debug-level logs, or verbose errors, or contain sample credentials.
@@ -385,7 +383,7 @@ General practices, then [OWASP Top 10:2025](https://owasp.org/Top10/2025/) categ
 **Integrity (A08)**
 
 - Untrusted data **must not** be deserialized into executable objects.
-- Signed inbound payloads **must** pass signature verification and the provider's freshness and replay checks before successful acknowledgment or processing. Preserve signed original bytes; use provider verification libraries where available. Inbox deduplication follows Background work and integrations. See [Stripe's webhook example](https://docs.stripe.com/webhooks).
+- Signed inbound payloads **must** pass signature verification and the provider's freshness and replay checks before successful acknowledgment or processing. Preserve original bytes when the signature covers them; use provider verification libraries where available. Inbox deduplication follows Background work and integrations. See [Stripe's webhook example](https://docs.stripe.com/webhooks).
 
 **Logging and alerting (A09).** Security events (authentication failures, authorization denials, privilege changes) **should** be logged and alertable.
 
@@ -393,7 +391,7 @@ General practices, then [OWASP Top 10:2025](https://owasp.org/Top10/2025/) categ
 
 ## UI
 
-*Why:* keeping logic out of UI rendering makes it testable, while accessibility and localization keep it usable for everyone.
+*Why:* separating logic from rendering enables testing; accessibility and localization keep UIs usable for everyone.
 
 **Where logic goes**
 
@@ -449,38 +447,38 @@ Screen-reader support and message catalogs **may** be deferred when unneeded by 
 
 ## Reasoning and communication
 
-*Why:* decisions are only as good as the claims behind them, and mixing observation with opinion hides which is which.
+*Why:* sound decisions need sound claims and a clear distinction between observation and opinion.
 
 For design docs, PR descriptions, reviews, and agent output:
 
 - Reasoning **should** separate observe, evaluate, analyze, synthesize, communicate phases; scale rigor to reversibility and impact.
 - Observation **must** be separate from interpretation: "the handler calls the DB three times" versus "the handler is slow" until measured.
-- Confidence, tradeoffs, and knowledge gaps **should** be explicit. Prefer precise, falsifiable claims; avoid vague generalizations and absolutes. Facts in issues and PRs **should** cite measurements (tool versions for tool behavior) or be labeled unmeasured. Results tables contain only measured cases.
+- Confidence, tradeoffs, and knowledge gaps **should** be explicit. Prefer precise, falsifiable claims; avoid vague generalizations and absolutes. Issue and PR facts **should** cite measurements (tool versions for tool behavior) or be labeled unmeasured. Results tables contain only measured cases.
 - Tradeoffs **must** name both sides, without silently choosing.
-- Ambiguous requirements **should** get numbered options instead of guesses, in conversations, issues, and PRs. When a measurable fact decides, measure first and include the data.
+- Ambiguous requirements **should** get numbered options, not guesses, in conversations, issues, and PRs. When a measurable fact decides, measure first and include the data.
 - Output **should** be dry and plain, moderate-to-high detail, without recapping.
 
 ## Scope and change discipline
 
-*Why:* small, single-purpose changes are faster to review, safer to ship, and easier to revert.
+*Why:* small, single-purpose changes speed review, reduce shipping risk, and ease reverts.
 
 - Tech debt **should** be paid off soon; it compounds quickly. Tracking follows [Exceptions](#exceptions).
 - A PR **should** cover one self-contained task, limited to its requirements and reviewable in one sitting. Small cleanups in touched code **may** accompany it.
 - Larger refactors, renames, and reorganization outside the task **should not** accompany it. Fix blocking adjacent code minimally and explain; otherwise leave a contextual TODO under [Comments](#comments).
-- Structural changes (refactors, moves, renames) and behavioral changes **should** land in separate commits or PRs (Kent Beck, *Tidy First?*).
+- Structural changes (refactors, moves, renames) and behavioral changes **should** land in separate commits or PRs.
 - Refactoring **should** take small, behavior-preserving steps under green tests, passing after each step.
 - `refactor:` commits **must not** change behavior; behavior changes are `feat:` or `fix:`.
 - Logic changes **must** include tests in the same PR. Independent test work **may** land first, such as characterization tests before refactoring untested code.
 - Every PR **must** leave main working, including each stacked PR.
-- New APIs **should** include a usage in their PR.
-- Review size **should** account for changed lines and file spread: about 100 lines is usually fine, 1,000 usually too large, and 200 across 50 files too large. Deleted files and trusted automated refactors count less.
+- Each new API **should** include a usage in its PR.
+- Review size **should** consider changed lines and file spread: about 100 lines is usually fine, 1,000 usually too large, and 200 across 50 files too large. Deleted files and trusted automated refactors count less.
 - Oversized PRs **should** be split, for example into stacks; reviewers **may** reject for size alone.
 
 [Further rationale](https://github.com/smonn/coding-standards/blob/main/GUIDE.md#scope-and-change-discipline).
 
 ## Version control and PRs
 
-*Why:* consistent history and PRs make the reasons behind the code searchable and reviewable.
+*Why:* consistent history and PRs keep code's rationale searchable and reviewable.
 
 ### Commits and branches
 
@@ -494,7 +492,7 @@ For design docs, PR descriptions, reviews, and agent output:
 - CI **may** check description templates (required sections, banned content).
 - PR titles **should** use Conventional Commits (`feat(billing): add proration`), be imperative, and stand alone in history.
 - Descriptions **should** explain the change, reason, limitations, and validation without relying on links, and be updated before merge.
-- Description length **should** reflect impact and risk, not its line count. A security-setting change may need more explanation than a large mechanical rename.
+- Description length **should** reflect impact and risk, not its line count: security-setting changes can need more explanation than large mechanical renames.
 - Descriptions **should** cite standards only for deviations.
 - Each fact **should** appear once; notes about other work **should** go on its issue.
 - PRs **should** open as drafts.
@@ -514,7 +512,7 @@ For design docs, PR descriptions, reviews, and agent output:
 
 ## Review
 
-Adapted from [Google's engineering practices](https://google.github.io/eng-practices/) for authors and reviewers. Departures: tech debt can lower code health through a Must exception; solo-maintainer approval and emergency declaration/confirmation are additions. [Merge gates](#merge-gates) define merge eligibility.
+Adapted for authors and reviewers from [Google's engineering practices](https://google.github.io/eng-practices/). Departures: tech debt lowering code health through Must exceptions; solo-maintainer approval; emergency declaration/confirmation. [Merge gates](#merge-gates) define merge eligibility.
 
 - **Standard.** Reviewers **should** approve changes that definitely improve code health despite imperfections. There is no perfect code, only better code. Worsening code health **should not** be approved except for tech debt recorded as a Must exception or an [emergency](#exceptions).
 - **First pass.** Reviewers **should** first assess whether the change makes sense, then read main files and send major design comments early.
@@ -526,7 +524,7 @@ Adapted from [Google's engineering practices](https://google.github.io/eng-pract
 - **Style.** Preferences outside formatter, linter, and standards **should not** block PRs.
 - **Speed.** Reviewers **should** respond within one business day at their next break point, not mid-task. Prioritize response speed over merge time; when full review waits, promptly give its timing or broad design comments.
 - **Approve with comments.** Reviewers **may** approve with minor or optional comments or when trusting the author to address them. Say which applies.
-- **Disagreements.** Facts and data beat opinions; formatter and linter settle style. If the author demonstrates equally valid approaches through data or sound engineering principles, their choice wins. Otherwise codebase consistency wins unless it lowers code health.
+- **Disagreements.** Facts and data beat opinions; formatter and linter settle style. If authors demonstrate equally valid approaches through data or sound engineering principles, their choice wins. Otherwise codebase consistency wins unless it lowers code health.
 - **Escalation.** Reviewers **should** consider the author could be right, seek consensus, then call the author and record the outcome on the PR. If unresolved, escalate to a tech lead or maintainer. Disagreement **should not** leave a PR unresolved.
 - **Replies.** Authors **should** respond calmly to comments about code, not themselves. Clarifications **should** become clearer code or useful [documentation](#comments), not only review replies.
 - **Vocabulary.** Reviews **may** use [Refactoring catalog](https://refactoring.com/catalog/) smells, such as Primitive Obsession, as shared vocabulary.
@@ -535,9 +533,9 @@ Adapted from [Google's engineering practices](https://google.github.io/eng-pract
 
 ## Changing these standards
 
-*Why:* standards that cannot change get ignored, and standards that change without review drift.
+*Why:* unchangeable standards get ignored; unreviewed changes cause drift.
 
-- Standards changes **must** go through PRs, like code.
+- Standards changes **must** use PRs, like code.
 - Recurring review feedback **should** become a check (preferred) or a rule. A comment made three times is a missing lint rule.
 - Agent instructions (CLAUDE.md, rules files, skills) **should** link to [these standards](#purpose-and-scope), not copy them, and contain only agent-specific rules.
 - Ineffective rules **should** be removed, not ignored.
@@ -591,7 +589,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 | Complexity (per function) | oxlint `eslint/complexity`, `max: 10` (default: 20) |
 | Per-file maintainability | [FTA](https://github.com/sgb-io/fta) (Halstead and cyclomatic measures) |
 | Test coverage | Vitest (`@vitest/coverage-v8`), line and branch |
-| Every test asserts | `expect-expect` configured for helper and harness assertions; `expect.hasAssertions()` checks presence at runtime |
+| Every test asserts | `expect-expect` under [assertion requirements](#testing); `expect.hasAssertions()` checks presence at runtime |
 | Mutation testing | [StrykerJS](https://stryker-mutator.io) |
 | Unhandled results | Type-aware oxlint `no-floating-promises`, `ignoreVoid: false`; review synchronous failure-bearing results separately |
 | Secrets | See Shared checks |
@@ -609,7 +607,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 - Packages **should** follow domains, not layers. Avoid `util` and `common`; use `internal/` for anything not meant to be imported.
 - Tests **should** be table-driven when cases share a shape.
 - Configure [exhaustive](https://github.com/nishanths/exhaustive) so `default` does not replace named cases when new enum values require changes ([Types](#types)).
-- Go’s regexp package guarantees linear-time matching, so the [backtracking check](#security) does not apply to it.
+- Go’s linear-time regexp package is exempt from the [backtracking check](#security).
 
 #### Tool mapping
 
@@ -624,7 +622,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 | Exhaustiveness | `exhaustive` via golangci-lint |
 | Unhandled results | `errcheck` via golangci-lint detects ignored errors; review assigned errors' subsequent handling |
 | Test coverage | `go test -cover` (statements only; no standard branch tool) |
-| Every test asserts | Assertion linting where available, configured for helper and harness assertions; review otherwise |
+| Every test asserts | See [assertion requirements](#testing) |
 | Mutation testing | `gremlins`; evaluate project runtime before choosing schedule |
 | Secrets, duplication | See Shared checks |
 
@@ -636,11 +634,11 @@ invariant(household, `Household ${householdId} missing after insert`);
 - Every `unsafe` block **must** have a `// SAFETY:` comment explaining soundness.
 - Value objects **should** use private-field newtypes and `TryFrom` or `FromStr` constructors ([Types](#types)).
 - States **should** be enums with data, preventing invalid combinations.
-- Use exhaustive `match` arms without `_` when new variants require changes. External `#[non_exhaustive]` enums require fallbacks ([Types](#types)).
+- Use exhaustive `match` without `_` when new variants require changes. External `#[non_exhaustive]` enums require fallbacks ([Types](#types)).
 - Ports **should** be traits implemented by adapters.
 - Layering **should** use workspace crates to enforce [dependency direction](#architecture).
 - Integration tests **should** live in `tests/`.
-- The regex crate guarantees linear-time matching and is exempt from the [backtracking check](#security); backtracking crates such as fancy-regex are covered.
+- The linear-time regex crate is exempt from the [backtracking check](#security); backtracking crates such as fancy-regex are covered.
 
 #### Tool mapping
 
@@ -654,6 +652,6 @@ invariant(household, `Household ${householdId} missing after insert`);
 | Complexity | Explicitly enable allow-by-default `clippy::cognitive_complexity`. Rust uses cognitive, not cyclomatic complexity; clippy's default threshold is 25. |
 | Unhandled results | Compiler `unused_must_use` covers annotated values and functions, denied by `-D warnings`; annotate project-defined must-use values and review remaining failure paths |
 | Test coverage | `cargo-llvm-cov` (branch coverage needs nightly) |
-| Every test asserts | Assertion linting where available, configured for helper and harness assertions; review otherwise |
+| Every test asserts | See [assertion requirements](#testing) |
 | Mutation testing | `cargo-mutants` |
 | Secrets, duplication | See Shared checks |

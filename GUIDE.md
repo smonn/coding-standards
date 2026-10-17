@@ -16,6 +16,8 @@ SOC 2, HIPAA, PCI DSS, and GDPR illustrate audit and regulatory regimes.
 
 Two similar blocks are cheaper than a wrong abstraction. A module whose interface is as complex as its body adds cost without hiding anything.
 
+Rich Hickey distinguishes simple from easy.
+
 ## Architecture
 
 [Standards](CODING_STANDARDS.md#architecture)
@@ -23,6 +25,10 @@ Two similar blocks are cheaper than a wrong abstraction. A module whose interfac
 Most rules in Testing follow from functional core, imperative shell. The core is the main value of the software; dependencies there tie that value to someone else's releases, licensing, and security. Mapping database rows and ORM entities to domain objects isolates schema changes.
 
 The shell supplies values such as current time, a generated ID, or a seed. External dependencies behind ports include databases, IdPs, email, payments, and queues.
+
+Too many bounded contexts obscure where new code belongs.
+
+Gary Bernhardt's Boundaries describes functional core, imperative shell.
 
 ## Contracts and migrations
 
@@ -35,6 +41,12 @@ Plain SQL migration files and a language-agnostic runner let the schema outlive 
 [Standards](CODING_STANDARDS.md#background-work-and-integrations)
 
 Email, file and media processing, and bulk jobs are examples of work that can run after the response when the response does not depend on their completion.
+
+## Robustness
+
+[Standards](CODING_STANDARDS.md#robustness)
+
+The robustness guidance draws on NASA/JPL's "Power of 10" rules.
 
 ## Infrastructure and deployment
 
@@ -83,6 +95,8 @@ Input types include `number`, `date`, `tel`, and `url`, as well as `email`; thes
 [Standards](CODING_STANDARDS.md#scope-and-change-discipline)
 
 Shipping a new API with a usage lets reviewers see how it is used and avoids landing unused APIs.
+
+Kent Beck's Tidy First? describes separating structural and behavioral changes.
 
 ## Version control and PRs
 
