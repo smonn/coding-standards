@@ -30,4 +30,4 @@ Readability takes priority when consolidation makes rules harder to apply. Local
 
 Use observations from validator-fns adoption and review batches and similar downstream work: standards gaps agents encounter, owner corrections, and findings that recur across PRs. Record them in the relevant issue or PR and link resulting standards changes. Distinguish unclear standards, overlooked instructions, and missing enforcement where the cause is known. An optional `standards-gap` issue label can make this evidence searchable.
 
-Another sign is downstream `AGENTS.md` files dropping duplicated general policy, retaining project-specific facts and agent instructions with links to the standards. Neither observation counts nor file length are targets, and an absence of recorded findings alone does not demonstrate improvement.
+Another sign is downstream `AGENTS.md` files dropping duplicated general policy, retaining project-specific facts and agent instructions with links to the standards. Neither observation counts nor file length is a target, and an absence of recorded findings alone does not demonstrate improvement.
