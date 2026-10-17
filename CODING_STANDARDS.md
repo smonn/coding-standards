@@ -10,7 +10,7 @@ Rules apply to the capabilities a project has: a library need not add a server, 
 
 Keywords carry weight:
 
-- **Must**: hard constraint. An exception needs approval (see Exceptions).
+- **Must**: hard constraint, used where a reviewer reading the diff can tell whether it was followed, or where a tool or the repository's configuration checks it. An exception needs approval (see Exceptions).
 - **Should**: strong default. An exception needs a stated reason (see Exceptions).
 - **May**: option worth considering. No justification needed either way.
 
@@ -20,12 +20,12 @@ Each binding rule uses one of these levels. Examples and rationale do not add re
 
 - **Terms.** A change is one PR. An exception records the rule, affected code or check, and reason for deviating. It applies only to that scope, including after merge, until removed or reconsidered.
 - **Should exceptions** need the rule and a reason in the PR description.
-- **Must exceptions** need approval in review and a record in the repository. Temporary exceptions **must** link a tracking issue with an owner and removal condition. Permanent exceptions **must** explain why the rule or diagnostic is inapplicable to the stated scope and when to reconsider it; accepted violations that need repair remain temporary. Changes to the affected assumptions or scope **must** revisit the exception at its original level.
+- **Must exceptions** need approval in review. Exceptions that persist after merge **must** have a repository record: an inline suppression, configuration comment, or exceptions file. PR-scoped gate waivers use the PR record instead. Temporary exceptions **must** link a tracking issue with an owner and removal condition. Permanent exceptions **must** explain why the rule or diagnostic is inapplicable to the stated scope and when to reconsider it; accepted violations that need repair remain temporary. Changes to the affected assumptions or scope **must** revisit the exception at its original level.
 - **Who approves.** Approval comes from a reviewer other than the author. In a repository with a single maintainer, the maintainer approves their own exceptions and the PR says so. An AI agent's review never counts as approval.
-- **Suppressions.** An inline or configuration suppression **must** carry its reason and any required exception reference. This includes options such as `skipLibCheck` and path-based ignores. Stale ignores **should** fail the check. Suppressions follow the level of the underlying rule, not the level of the job running it. Formatting and unsuppressed compiler errors cannot be waived; type-check suppressions follow Types. Shared thresholds **must not** be loosened to pass one PR.
-- **Gate waivers.** A check that cannot be suppressed locally **may** use a scoped PR waiver at the underlying rule's level. CI **must** validate the required approval, bind the waiver to the reviewed revision, and report the waived failure separately from passing checks. New commits invalidate the waiver. A local run reports the failure and pending waiver; only the CI gate can accept it. A waiver never turns a failing check into a passing measurement.
-- **Standing scopes.** A check **may** exclude a documented category of change under a permanent exception at the underlying rule's level. Any exemption based on automation identity **must** verify who controls the PR and its subsequent updates, using trusted metadata and repository permissions. A branch name, same-repository branch, or initial author alone is insufficient. CI **must** reevaluate eligibility on updates and report the selected suite; uncertain eligibility runs the full required suite.
-- **Lowering code health.** A change that materially increases maintenance cost or weakens an existing correctness or safety guarantee **must** record the specific regression as a temporary Must exception, or use the emergency process. Merely adding necessary feature code does not establish a regression.
+- **Suppressions.** An inline or configuration suppression **must** carry its reason and any required exception reference. This includes options such as `skipLibCheck` and path-based ignores. Stale ignores **should** fail the check. Suppressions follow the level of the underlying rule, not the level of the job running it. Formatting and unsuppressed compiler errors cannot be waived; type-check suppressions follow Types. Approved scoped suppressions record exceptions; they do not weaken the rule for other code.
+- **Gate waivers.** A check that cannot be suppressed locally **may** use a PR-scoped waiver at the underlying rule's level. At minimum, the PR **must** record the failed check, reason, and any required approval, with a CI-recognized label or equivalent marker. CI **should** validate approval and bind authorization to the reviewed revision automatically. Without that binding, the PR **must** record revalidation after later pushes, including any approval the rule requires. Local runs report the actual failure and need not read PR state. The CI gate **must** report waived failures separately from passing checks. A waiver never turns a failing check into a passing measurement.
+- **Standing scopes.** A check **may** exclude a documented category of change under a permanent exception at the underlying rule's level. Identity-based exemptions **must** account for who controls the PR and subsequent updates, using trusted metadata and repository permissions. A same-repository branch **may** establish the trust boundary when repository write permissions match the exemption's intended trust; branch names alone cannot. Bot-specific exemptions **must** account for later pushes by other actors. CI **must** reevaluate eligibility on updates and report the selected suite; uncertain eligibility runs the full required suite.
+- **Lowering code health.** Reviewers **should** identify concrete regressions in maintainability, correctness, or safety. A PR accepting an identified regression **must** record it as a temporary Must exception or declare an emergency.
 - **Emergencies** are production outages, major bugs affecting users, legal issues, security holes, and launches with a hard deadline and serious consequences. They are not: wanting to ship sooner, soft deadlines, the end of the week, a reviewer being away, a manager asking for a same-day review, or rolling back a PR that broke tests or the build.
 - **Declaring an emergency.** The author declares it in the PR, and the reviewer confirms it.
 - **Emergency review.** The review **may** focus on resolving the emergency safely. The reviewer **must** verify that outcome. Branch protection and non-waivable checks still apply; other failing checks follow the waiver process. Tests required by Scope and change discipline **may** be deferred only through a temporary Must exception.
@@ -58,7 +58,7 @@ Simple over easy (in Rich Hickey's sense): fewer things braided together, even w
 - **Simplest correct solution.** You **should** pick the simplest approach that solves the problem correctly. Between two approaches of similar complexity, pick the more readable one. Cleverness needs a measured reason (see Performance).
 - **Pure functions, immutable data, explicit data flow.** You **should** prefer these over hidden state and side effects.
 - **Caller-owned arguments.** Functions **should not** mutate arguments the caller owns unless that is their documented purpose. Copy stateful inputs (a RegExp with g or y flags, iterators) before use.
-- **Data and behavior, not hybrids.** A type **should** either expose plain data for functions to use, or hide its state behind behavior that protects its invariants.
+- **Data and behavior, not hybrids.** You **should** prefer plain data plus functions over objects that both expose their fields and carry behavior. A type is either a data structure (exposes data, no behavior) or an object (hides data, exposes behavior), not both.
 - **Composition over inheritance.** You **should** compose small parts rather than build class hierarchies.
 - **Parse, don't validate.** At boundaries you **must** transform untyped input into narrowed types once, rather than checking and passing the raw value along.
 - **Make illegal states unrepresentable.** You **should** use the type system (sum types, branded or newtype IDs, required fields) so invalid combinations cannot be constructed.
@@ -146,7 +146,7 @@ The structural default is functional core, imperative shell (Gary Bernhardt, "Bo
 
 - Each user-facing change **should** carry its release note in the PR that makes it (for example a changeset). A check **should** fail a PR without one. A PR with no user-facing change records that explicitly (for example an empty changeset).
 - Version numbers and changelogs **should** be generated from those notes, not edited by hand.
-- Releases **should** be published by CI from a known commit after the required and applicable conditional checks pass or the gate accepts their waivers, using the exact checked artifact with no rebuild in between. Publishing credentials follow Supply chain (A03).
+- Releases **should** be published by CI from a known commit after the required and applicable conditional checks pass, using the exact artifact that passed them, with no rebuild in between. Merge waivers do not authorize publication with failed checks. Publishing credentials follow Supply chain (A03).
 - A library **should** be tested as published: build it with the same command the release uses, then load it from a separate project the way consumers do (for example with both require and import). The Package shape check covers the rest.
 - A toolchain bump or structural refactor of a library **should** show its public API surface (for example built type declarations) and its built output's syntax level and built-ins unchanged against the base, or list each difference.
 - The release process **should** document how to recover when publishing fails after the version is bumped.
@@ -155,7 +155,7 @@ The structural default is functional core, imperative shell (Gary Bernhardt, "Bo
 
 *Why:* code that changes together should live together, so a feature can be understood and changed in one place.
 
-- Code **should** be organized by feature or domain at the top level, rather than technical directories such as `controllers/`, `services/`, or `models/`.
+- Code **should** be organized by feature or domain at the top level, not by technical type. There is no top-level `controllers/`, `services/`, or `models/`.
 - Within a feature, the technical split **should** apply: `billing/` holds its core, shell, entry points, and tests. Infrastructure code and genuinely generic shared helpers **should** live outside features.
 - Tests **should** be colocated with the code they test, in the language's form: a sibling `*.test.ts`, a `_test.go` file in the same package, or an in-file `#[cfg(test)]` module in Rust.
 - Functions **should** take few parameters. When the list grows, group related parameters into a named object or type.
@@ -209,7 +209,7 @@ Language specifics are under Language notes. The general rules:
 - Non-null assertions or unwraps **must not** be used on values that can legitimately be absent at runtime. Handle the absent case explicitly.
 - Exhaustiveness checking **must** be on for matches over sum types: a `never` check in TypeScript, `match` in Rust, the `exhaustive` linter in Go. Where adding a variant must force callers to change, matches **must** name every variant: a catch-all arm (`_ =>` in Rust, `default` in Go) silently accepts new variants, and in TypeScript the `default` branch holds only the `never` check. Enums from other crates marked `#[non_exhaustive]` require a wildcard, so this does not apply to them.
 - Domain values with rules **should** be value objects where reasonable: a dedicated, immutable type that can only be constructed through a parser enforcing the rule. Examples: entity IDs, strings with a format (email, slug, currency code), numbers with a range (percentage, quantity). Use a brand or tag in structurally typed languages (a cast can still forge one, which the cast rule above keeps visible), a struct with an unexported field in Go, and a newtype with a private field in Rust. A value with no rule beyond its primitive type stays primitive.
-- Times **should** be stored and passed in UTC, converted only at the edges. Money **should** use integer minor units or a decimal type rather than binary floating point.
+- Pitfall defaults (**may** be overridden with a reason): times stored and passed in UTC, converted only at the edges; money as integer minor units or a decimal type, never binary floating point.
 
 ## Errors
 
@@ -231,7 +231,7 @@ Language specifics are under Language notes. The general rules:
 - **Test first.** New behavior **should** start with a failing test (red, green, refactor). Acceptance-level tests **should** come first for user-facing features. Most of them run against use cases or the API; only critical user flows need a browser (see UI).
 - **Test the core, integration-test the shell.** The functional core **should** be covered by fast unit tests with no mocks. The shell **should** be covered by a small number of tests against real dependencies (real database, real filesystem, a test account).
 - **Mocks only at external boundaries.** Mocks **must** be limited to things the application does not own: network, filesystem, clock, third-party services. Prefer fakes and in-memory implementations over mocks.
-- **An internal mock is a design smell.** Wanting to mock an internal collaborator **should** prompt moving logic into the core. When that change is unavailable, using an internal mock requires a temporary Must exception to the boundary rule above.
+- **An internal mock is a design smell.** Wanting to mock an internal collaborator **should** prompt moving logic into the core, not writing a better mock. In codebases where that change is not available, flag it and proceed.
 - **Structure.** Tests **should** follow arrange, act, assert, with one concept per test.
 - **Names** **should** read as `should <expected behavior> when <condition>`.
 - **Isolation.** Tests, including end-to-end tests, **must not** depend on execution order or shared mutable state.
@@ -246,15 +246,15 @@ Rules a tool can check **should** be enforced by a tool. In the table, Level gov
 
 **How checks run**
 
-- One entry point (for example `check`) **must** define the required suite, conditional checks with explicit applicability rules, and scheduled checks. Local and CI runs **must** use the same implementations and inputs for the same suite and revision. Local hooks **may** run a named subset, but do not replace the completion gate.
-- A change **must** pass the required suite and applicable conditional checks, or have valid waivers accepted by the CI gate, before it is declared done. Results **must** distinguish passes, failures, waivers, and checks not run. Scheduled checks are outside this per-change gate unless the project explicitly includes them.
+- One entry point (for example `check`) **must** define the required suite, conditional checks with explicit applicability rules, and scheduled checks. Local and CI runs **must** use the same implementations and inputs for the same suite and revision. Local hooks that run part of it **should** cover the same files, including supported extensions such as `.mjs` and `.cjs`; hooks do not replace the completion gate.
+- A change **must** pass the required suite and applicable conditional checks, or have valid waivers accepted by the CI gate, before it is declared done. Results **must** distinguish passes, failures, waivers, and checks not run. Scheduled checks are outside this per-change gate unless the project explicitly includes them. Check configuration **must not** be loosened to make a change pass (see Exceptions). This includes disabling rules, narrowing file coverage, and adding ignores outside the documented exception process.
 - In repositories that merge without squashing, each commit on main **should** pass the code checks: fold a red-test commit into its fix before merge. Per-PR checks apply to the PR's last commit.
-- A check's result **should** depend on the checked revision, lockfiles, pinned toolchain, and declared inputs such as the comparison revision or PR metadata. CI or the check itself **should** set up every sub-project from its lockfile. Gate authorization is separate from the underlying check result (see Gate waivers).
+- A check's result **should** depend on the checked revision, lockfiles, pinned toolchain, and declared inputs such as the comparison revision or PR metadata, not on local state such as a sub-project's installed dependencies or caches. CI or the check itself **should** set up every sub-project from its lockfile. Gate authorization is separate from the underlying check result (see Gate waivers).
 - A new check **should** be shown to fail once: break what it guards on purpose, and record the result in the PR.
 - A CI change that cannot run before merge **should** name, in the PR, a safe first run after merge and its expected result.
 - The development toolchain version **should** be pinned in the repository (.nvmrc, rust-toolchain.toml, the toolchain line in go.mod), and CI **should** use the pinned version. Local checks **should** fail on a toolchain version other than the pinned one. This is separate from the runtime versions a library supports, which are part of its contract (see Contracts and migrations). Contributor-only requirements (package manager, toolchain) **should** stay out of metadata consumers see (for example engines).
 - When a tool's default conflicts with a project rule, the repository **should** configure the tool, including AI agent settings.
-- A fast feedback subset **should** run on every iteration. Slow checks (mutation testing, full-repo analysis) **may** run on a schedule with a documented owner and failure-response process. The required suite still runs before completion.
+- Checks **should** be fast enough to run on every iteration, including every agent loop. Slow checks (mutation testing, full-repo analysis) **may** run on a schedule with a documented owner and failure-response process. The required suite still runs before completion.
 - Findings **should** be errors or off. Warnings that never fail the build become noise.
 - New code **must** meet every Must-level threshold from day one and **should** meet every Should-level one. The coverage target applies to the project as a whole; per-PR coverage follows the changed-lines rule in the table.
 
@@ -307,7 +307,7 @@ A fully covered function scores its complexity. An untested one scores roughly i
 - Logic changes **must** include their tests in the same PR. Independent test work **may** land first, for example characterization tests before refactoring untested code.
 - Every PR **must** leave the main branch working, including each PR in a stack of dependent changes.
 - A new API **should** ship with at least one usage in the same PR. Reviewers then see how it is used, and no unused API lands.
-- Temporary exceptions **must** link their tracking issue from the affected code, configuration, or repository exception record (see Exceptions).
+- Temporary exceptions **must** link their tracking issue from the affected code, configuration, or repository exception record (see Exceptions). Tech debt **should** be paid off soon, since unpaid debt compounds quickly.
 - A PR **should** do one self-contained thing, small enough to review in one sitting. Around 100 changed lines is usually fine, and around 1,000 is usually too large. File spread counts too: 200 lines across 50 files is too large. Deleted files and trusted automated refactors count for less.
 - A PR that is too large **should** be split, for example into stacked PRs. Reviewers **may** reject a change for size alone.
 - Before adding a utility, you **should** check whether one already exists.
@@ -349,7 +349,7 @@ A fully covered function scores its complexity. An untested one scores roughly i
 
 Largely adapted from [Google's engineering practices](https://google.github.io/eng-practices/), for reviewers and authors alike. Departures: tech debt may lower code health as a must exception, where Google warns that cleaning up later is a common way for codebases to degrade. The solo-maintainer approval rule and the declare-and-confirm step for emergencies are additions.
 
-- **Standard.** Reviewers **should** approve when a change meets its requirements and preserves or improves code health. Material regressions follow Exceptions; unrelated cleanup is not a condition of approval.
+- **Standard.** Reviewers **should** approve once a change definitely improves code health, even if it is not perfect. There is no perfect code, only better code. A change that makes code health worse **should not** be approved unless it is tech debt recorded as a must exception, or an emergency (see Exceptions).
 - **First pass.** Reviewers **should** first decide whether the change makes sense at all, then read its main files, and send major design comments early.
 - **What to look for.** Reviewers **should** look at design, functionality (including edge cases and concurrency), and complexity, watching for over-engineering. They **should** check that the tests would fail if the code broke, and that naming, comments, and documentation are updated.
 - **Rigor.** Reviewers **should** read the surrounding files, not only the diff, and watch for security flaws, PR size, and mixed structural and behavioral changes. Each finding **should** survive a second look before it is raised.
@@ -358,7 +358,7 @@ Largely adapted from [Google's engineering practices](https://google.github.io/e
 - **Labels.** Nit marks minor polish and Optional marks a suggestion; both are May-level. FYI is for future reference and needs no action in this change.
 - **Style preferences.** A personal style preference that the formatter, the linter, and this document do not cover **should not** block a PR.
 - **Speed.** Reviewers **should** respond within one business day at most, at their next break point rather than mid-task. Quick individual responses matter more than total time to merge. When a full review has to wait, send a quick note saying when, or broad design comments first.
-- **Approve with comments.** Reviewers **may** approve with minor or optional comments outstanding. Required changes **must** be verified as resolved or covered by a valid exception before merge; trust in the author does not waive them.
+- **Approve with comments.** Reviewers **may** approve while leaving comments, when the remaining comments are minor or optional, or when they trust the author to address them. Say which applies.
 - **Disagreements.** Technical facts and data beat opinions, and the formatter and linter settle style. When the author shows, with data or solid engineering principles, that approaches are equally valid, the author's choice wins. Otherwise, consistency with the existing codebase wins, unless it lowers code health.
 - **When disagreement persists.** The reviewer **should** first consider that the author may be right. Then try for consensus, then a call between author and reviewer, and record the outcome on the PR. If that fails, escalate to a tech lead or maintainer. A PR **should not** sit unresolved because of a disagreement.
 - **Explanations belong in code.** When a reviewer asks what code does, the answer **should** be clearer code or a code comment. A reply that lives only in the review tool does not help future readers.
@@ -574,7 +574,7 @@ Tools for the checks in Static analysis:
 - Invariant violations **must** use `assert!` or `panic!` with a message stating the invariant.
 - `unwrap()` **must not** be used on values that can legitimately be absent. `expect("...")` **may** be used where absence is an invariant violation; the message states the invariant.
 - Every `unsafe` block **must** carry a `// SAFETY:` comment explaining why it is sound.
-- Value objects **should** be newtypes with private fields and a parsing constructor (`TryFrom` or `FromStr`).
+- Value objects **should** be newtypes with a parsing constructor (`TryFrom` or `FromStr`). Fields stay private so the rule cannot be bypassed.
 - States **should** be enums with data, so invalid combinations cannot be built.
 - Ports **should** be traits. Adapters implement them.
 - Layering **should** be enforced with workspace crates: the core crate does not depend on the shell crate, so the compiler checks the dependency direction.
@@ -601,6 +601,6 @@ Tools for the checks in Static analysis:
 *Why:* standards that cannot change get ignored, and standards that change without review drift.
 
 - Changes to this document **must** go through a PR, like code.
-- Recurring review feedback **should** prompt an improvement to tooling, design, documentation, or these standards. Prefer automation when the rule can be checked reliably.
+- Review feedback that recurs **should** become a check (preferred) or a rule here. A comment made three times is a missing lint rule.
 - Agent instruction files (CLAUDE.md, rules files, skills) **should** reference this document rather than copy it, and hold only agent-specific rules.
 - A rule that no longer pulls its weight **should** be removed, not ignored.
