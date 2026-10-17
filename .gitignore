@@ -1,0 +1,10 @@
+# Agent and editor state
+.claude/worktrees/
+.claude/settings.local.json
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
