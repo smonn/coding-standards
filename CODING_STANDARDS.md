@@ -53,11 +53,11 @@ Applies to design docs, PR descriptions, reviews, and agent output alike.
 
 Simple over easy (in Rich Hickey's sense): fewer things braided together, even when the braided version is quicker to write.
 
-- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions for hypothetical future requirements. This does not apply to structure that is expensive to retrofit (ports for external dependencies, an outbox, message catalogs, value objects): it **may** be built up front, with the retrofit cost stated.
+- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions solely for hypothetical future requirements. Upfront structure **may** address an identified risk of expensive retrofit when the decision states the evidence, deferred alternative, and present cost. A named pattern alone does not justify it.
 - **Rule of three for DRY.** You **should** abstract duplication only once it reveals a real pattern, usually on the third occurrence. Two similar blocks are cheaper than a wrong abstraction.
 - **Simplest correct solution.** You **should** pick the simplest approach that solves the problem correctly. Between two approaches of similar complexity, pick the more readable one. Cleverness needs a measured reason (see Performance).
 - **Pure functions, immutable data, explicit data flow.** You **should** prefer these over hidden state and side effects.
-- **Caller-owned arguments.** Functions **should not** mutate arguments the caller owns unless that is their documented purpose. Copy stateful inputs (a RegExp with g or y flags, iterators) before use.
+- **Caller-owned arguments.** Functions **should not** mutate caller-owned inputs unless that is their documented purpose. Copy stateful inputs when an independent copy is available and appropriate. APIs taking iterators **must** document whether they consume them; APIs needing repeatable traversal **should** accept a collection or a factory for fresh iterators.
 - **Data and behavior, not hybrids.** You **should** prefer plain data plus functions over objects that both expose their fields and carry behavior. A type is either a data structure (exposes data, no behavior) or an object (hides data, exposes behavior), not both.
 - **Composition over inheritance.** You **should** compose small parts rather than build class hierarchies.
 - **Parse, don't validate.** At boundaries you **must** transform untyped input into narrowed types once, rather than checking and passing the raw value along.
@@ -70,10 +70,12 @@ Simple over easy (in Rich Hickey's sense): fewer things braided together, even w
 
 The structural default is functional core, imperative shell (Gary Bernhardt, "Boundaries"). Most rules in Testing follow from it.
 
-- **Functional core.** Decisions **should** live in pure functions over values. The core takes already-loaded inputs and returns values, including descriptions of what to do next.
+Business logic determines domain outcomes and enforces domain invariants. Orchestration controls IO, retries, transactions, cancellation, and response mapping. Additional ports, types, and mappings **should** isolate an identified source of change, enforce an invariant, or simplify consumers; a boundary that does none of these **may** be omitted with the reason recorded.
+
+- **Functional core.** Business decisions **should** live in pure functions over values. The core takes already-loaded inputs and returns values, including descriptions of what to do next.
 - **No impure APIs in the core.** The core **must not** use clock, randomness, filesystem, network, database, environment, or other IO APIs directly. The shell reads them and passes values in (the current time, a generated ID, a seed). Effects go out as returned values for the shell to execute.
-- **No third-party dependencies in the core.** The core **should** depend only on the standard library and the project's own code. It is the main value of the software, and a dependency there ties that value to someone else's releases, licensing, and security. Allowed dependencies (for example a decimal library where the standard one is inadequate) **must** be deliberate, documented, and wrapped behind the project's own types, and listed in the dependency check's allowlist.
-- **Imperative shell.** IO, mutation, and calls to external systems **should** live in a thin orchestration layer at the edges. The shell loads, calls the core, then acts on the result. It **should not** contain decisions.
+- **No third-party dependencies in the core.** The core **should** depend only on the standard library and the project's own code. Allowed dependencies (for example a decimal library) **must** be documented with their reason and listed in the dependency check's allowlist. Wrapping their types follows the boundary criteria above; the allowlist does not exempt them from Dependencies.
+- **Imperative shell.** IO, mutation, and calls to external systems **should** live in a thin orchestration layer at the edges. The shell owns operational control flow and calls the core for business decisions.
 - **Ports and adapters.** External dependencies (database, IdP, email, payments, queues) **should** sit behind a port the application owns. Adapters implement ports. Third-party types **should not** leak past the adapter.
 - **Persistence models stay at the adapter.** Database rows and ORM entities are not domain objects. The adapter **should** map between them, so schema changes and domain changes stay independent.
 - **Thin entry points.** HTTP handlers, CLI commands, and job runners **must not** contain business logic. They check and parse input, call a use case, and map the result to a response.
@@ -88,7 +90,7 @@ The structural default is functional core, imperative shell (Gary Bernhardt, "Bo
 
 *Why:* other people's code depends on these shapes, and breaking them breaks systems you cannot see.
 
-- Public contracts (HTTP APIs, library exports, package metadata such as entry points, types, and supported runtime versions, event and message schemas, persisted file formats, CLI flags and output) **must** stay backward compatible. Breaking changes **must** be versioned and announced, and consumers outside the repository **should** get a deprecation period.
+- Public contracts (HTTP APIs, library exports, package metadata such as entry points, types, and supported runtime versions, event and message schemas, persisted file formats, CLI flags and output) **must** stay backward compatible within a supported contract version. Breaking changes **must** introduce an explicitly identified new contract version and be announced; consumers outside the repository **should** get a deprecation period before the old version is retired.
 - Libraries **should** follow Semantic Versioning. Dropping a supported runtime version is a breaking change. The lowest supported runtime version **should** run in CI.
 - Database migrations **should** follow expand, migrate, contract: add the new shape, move data and readers, then remove the old shape in a later deploy. Running code **must** keep working at every step.
 - Migrations **should** be plain SQL files run by a language-agnostic tool (for example [dbmate](https://github.com/amacneil/dbmate)), not ORM-generated code. The schema then outlives any one language, framework, or ORM.
@@ -97,19 +99,21 @@ The structural default is functional core, imperative shell (Gary Bernhardt, "Bo
 
 *Why:* requests should stay fast and predictable, and calls to systems you do not control will fail in ways you cannot prevent.
 
-- Slow or unreliable work (third-party calls, email, file and media processing, bulk jobs) **should** run in background workers, off the request path.
-- Outbound integrations **should** use a transactional outbox: write the outgoing message in the same transaction as the state change, and let a worker deliver it with retries. A state change and its notification then never disagree.
-- Inbound webhooks and third-party events **should** use an inbox: store the raw message durably, acknowledge quickly, process it asynchronously, and deduplicate by message ID.
-- Workers **must** be idempotent, since both patterns deliver at least once (see Errors on retries).
-- Inbox and outbox records **must** have a retention limit. Raw payloads **should** be purged or redacted once processed, since they often carry personal data.
+- Work that need not finish before responding (email, file and media processing, bulk jobs) **should** run in background workers. Required synchronous integrations still follow the timeout and retry rules.
+- A committed state change that must reliably cause an external effect **should** use a transactional outbox: store the delivery intent in the same transaction, then deliver asynchronously. The atomic guarantee covers state and intent; remote delivery can be delayed or fail. Read-only integrations do not need an outbox. See the [transactional outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html).
+- Inbound events that permit asynchronous handling **should** use an inbox: authenticate under Security, store durably, acknowledge, then process. Deduplication keys **must** include the sender or subscription scope when message IDs are not globally unique.
+- Workers that can receive duplicate deliveries **must** make their effects idempotent. Deduplication state and local effects **must** commit atomically; remote effects need an idempotency mechanism at the receiving boundary (see Errors).
+- Inbox and outbox records **must** have bounded retention, with separate policies for payloads and deduplication keys. The deduplication window **must** cover supported retries and replays. Raw payloads **should** be purged or redacted once no longer needed.
+- Exhausted retries and expiring unprocessed messages **must** produce a recorded terminal outcome, with an owner or alert and a defined recovery or discard policy. Replay after deduplication expiry **must** reestablish idempotency or be rejected; records cannot silently expire while delivery is still promised.
 
 ## Robustness
 
 *Why:* systems fail at their limits and in their unchecked paths. Explicit bounds and checked results turn surprises into handled cases. Adapted from NASA/JPL's "Power of 10" rules.
 
 - **Everything bounded.** Every outbound call **must** have a timeout. Retries, queues, worker concurrency, caches, request body sizes, and query results **must** have explicit limits. Lists returned by APIs that can grow without bound **must** be paginated.
-- **No unbounded recursion on untrusted input.** Recursion over external data (JSON trees, user-defined graphs) **must** be depth-limited or rewritten as iteration.
-- **Check every result.** Returned errors, results, and promises **must not** be ignored, and the build **must** fail when they are: `no-floating-promises` in TypeScript (with `ignoreVoid` turned off), `errcheck` in Go, `#[must_use]` in Rust. Discarding an error or result on purpose **must** be explicit (`_ =`, `let _ =`) with a comment. A promise **must** have its rejection handled (a `.catch` that handles or logs it), or carry a suppression comment stating why it cannot reject; `void` alone does not count.
+- **Bound traversal of untrusted input.** Traversal of external trees or graphs **must** limit depth and total work or input size, whether recursive or iterative. Iteration avoids call-stack exhaustion but does not itself bound memory or runtime.
+- **Handle failure-bearing results.** Errors, failure-bearing result values, and designated must-use values **must** be handled or propagated. Intentional discards **must** be explicit and explain why they are safe. Promises **must** be awaited or returned to a responsible caller, or have a rejection handler; `void` alone does not handle rejection. A documented guarantee that a promise cannot reject **may** justify a scoped suppression.
+- **Automate detectable omissions.** The check suite **must** enable available ignored-error and unhandled-promise diagnostics. Tools detect specific omissions, not all semantic handling: TypeScript promise linting does not cover synchronous result unions, Go's `errcheck` does not prove assigned errors are handled, and Rust's `unused_must_use` covers annotated values and functions. Review **must** check the remaining paths.
 - **Smallest scope, immutable by default.** Bindings **should** be immutable (`const`, no `mut`) unless mutation is needed, and declared where they are used.
 - **Limit indirection.** `eval`, reflection-based dispatch, monkey patching, and macro-heavy code **should not** be used where plain code works. Control flow **should** be visible in the source.
 - **Assert what types cannot express.** Preconditions and postconditions the type system cannot capture **should** be checked with `invariant` (see Errors). There is no assertion density target.
@@ -129,7 +133,7 @@ The structural default is functional core, imperative shell (Gary Bernhardt, "Bo
 *Why:* logs and metrics exist to operate the system. Noise in them hides the signal, and gaps in them hide incidents.
 
 - Incidental debug logging **should not** be committed. What may reach production is set under Security (A02).
-- Logs **should** be structured (key/value fields) and carry the request ID (see Errors). Personal data stays out (see Security).
+- Logs **should** be structured (key/value fields) and carry the request ID (see Errors). Logged fields follow the data policy in Security.
 - Incidental metrics and instrumentation **should not** be added unless the task asks for them. Instrumentation that budgets and alerting need (see Performance and Security) is fine.
 
 ## Infrastructure and deployment
@@ -137,7 +141,7 @@ The structural default is functional core, imperative shell (Gary Bernhardt, "Bo
 *Why:* an environment that can only be rebuilt from memory cannot be reproduced, reviewed, or trusted.
 
 - Infrastructure **must** be defined as code (for example OpenTofu or Terraform) and changed through PRs like application code.
-- Every environment **should** be reproducible from the repository alone. Manual changes in a console are drift and **should** be folded back into code or reverted.
+- Every environment **should** be reproducible from tracked definitions and documented prerequisites, including separately provisioned secrets and external services. Manual changes in a console are drift and **should** be folded back into code or reverted.
 - Deployments **should** be automated and repeatable from a known commit. Configuration comes from the environment, not from per-environment builds.
 
 ## Releases
@@ -160,7 +164,7 @@ The structural default is functional core, imperative shell (Gary Bernhardt, "Bo
 - Tests **should** be colocated with the code they test, in the language's form: a sibling `*.test.ts`, a `_test.go` file in the same package, or an in-file `#[cfg(test)]` module in Rust.
 - Functions **should** take few parameters. When the list grows, group related parameters into a named object or type.
 - Magic numbers and strings **should not** appear inline. Name them as constants, or as value objects when they carry a rule. Obvious values in obvious places (`0`, `1`, an empty string) are fine.
-- Files **should** stay under roughly 200 lines, excluding imports and type-only declarations; test files under roughly 300. A file approaching the limit is a signal to extract, not to raise the limit. Projects **may** override the numbers.
+- Files approaching roughly 200 lines (300 for tests), excluding imports and type-only declarations, **should** prompt a cohesion review. Extract only when the result improves interfaces or navigation; length alone does not justify splitting a coherent module. Projects **may** adjust these review signals.
 
 ## Naming
 
@@ -192,7 +196,7 @@ These are defaults. Project rules and language idioms **must** take precedence, 
 - Comments **should** explain WHY, not WHAT. If code needs a WHAT comment, rewrite the code first.
 - Genuinely opaque syntax (a complex regex, bit manipulation, an obscure API workaround) **may** get a brief WHAT comment.
 - Workarounds and external constraints **must** carry a comment stating the reason. Casts follow Types.
-- Doc comments (JSDoc, rustdoc, godoc) **should not** be added to self-documenting signatures. When one parameter is ambiguous (is `rate` 0.07 or 7?), document that parameter only.
+- Doc comments **should** explain contracts that signatures omit: units, effects, ownership, ordering, failure modes, and guarantees. Self-explanatory signature details need no restatement. Document an ambiguous parameter directly (is `rate` 0.07 or 7?).
 - Obvious operations **should not** get inline comments.
 - TODO comments **must** say what is left, why it was deferred, and reference a tracking issue: `TODO(#456): handle timezone edge case after #123 lands`.
 
@@ -204,21 +208,22 @@ Language specifics are under Language notes. The general rules:
 
 - The strictest practical compiler or checker settings **should** be on.
 - Escape hatches that switch off checking (TypeScript `any`, Rust `unsafe` without need) **must not** be used to silence the compiler. Use the top type (`unknown` in TypeScript) and narrow. Go's `any` follows its language notes.
-- Type assertions and casts are a last resort. Each one **must** carry a comment on why inference or narrowing fails. Prefer type guards or assertion functions.
+- Unchecked type assertions **should** be a last resort. Each **must** explain why inference or narrowing cannot establish the claim and why it is safe. Checked conversions need no assertion justification. Potentially lossy conversions **must** check the valid range or document why the loss is intentional.
 - Suppression directives (`@ts-ignore`, `#[allow(...)]`, `//nolint`) **must** say why and what would remove the need.
 - Non-null assertions or unwraps **must not** be used on values that can legitimately be absent at runtime. Handle the absent case explicitly.
 - Exhaustiveness checking **must** be on for matches over sum types: a `never` check in TypeScript, `match` in Rust, the `exhaustive` linter in Go. Where adding a variant must force callers to change, matches **must** name every variant: a catch-all arm (`_ =>` in Rust, `default` in Go) silently accepts new variants, and in TypeScript the `default` branch holds only the `never` check. Enums from other crates marked `#[non_exhaustive]` require a wildcard, so this does not apply to them.
 - Domain values with rules **should** be value objects where reasonable: a dedicated, immutable type that can only be constructed through a parser enforcing the rule. Examples: entity IDs, strings with a format (email, slug, currency code), numbers with a range (percentage, quantity). Use a brand or tag in structurally typed languages (a cast can still forge one, which the cast rule above keeps visible), a struct with an unexported field in Go, and a newtype with a private field in Rust. A value with no rule beyond its primitive type stays primitive.
-- Pitfall defaults (**may** be overridden with a reason): times stored and passed in UTC, converted only at the edges; money as integer minor units or a decimal type, never binary floating point.
+- Pitfall defaults (**may** be overridden with a reason): instants stored and passed in UTC, converted at the edges; money as integer minor units or a decimal type, never binary floating point.
+- Local dates and recurring local schedules **must** retain their calendar and time-zone semantics rather than being forced into instants.
 
 ## Errors
 
 *Why:* failures will happen. They should be visible, specific internally, safe externally, and never silently corrupt state.
 
-- Internal error messages and logs **must** be specific and actionable: what failed, the relevant IDs or non-personal values (see Security), and expected vs actual where it applies. `Chore 01HX3 not found in household 01HX9`, not `Not found`.
+- Internal errors **must** identify what failed and the expected versus actual state where useful, using only diagnostic fields allowed by Security. Identifiers are not automatically non-personal.
 - Client-facing errors **must not** leak internals: no stack traces, internal IDs, query details, or existence leaks (for example "user exists"). Return a stable error code the client can act on, and correlate it with the internal error through a request ID.
 - Expected outcomes (not found, rejected, conflict) **should** be values in the return type.
-- Invariant violations **must** throw (or panic). Unexpected state, especially when it is not recoverable, **must never** let execution carry on. This covers data integrity and security controls in particular. See the `invariant` helper under Language notes.
+- Invariant violations **must** throw (or panic) and abort the affected operation. A request or worker boundary **may** catch the failure to report it and isolate the operation; it **must not** resume work that depends on the violated invariant. The process **must** terminate when shared state can no longer be trusted. See the `invariant` helper under Language notes.
 - You **should** define errors out of existence where the semantics allow it: idempotent operations, masking low-level transient failures with bounded retries, handling errors once in a central place rather than at every call site.
 - Retries against external systems **must** be idempotent (idempotency keys or naturally idempotent operations) and **should** use backoff.
 - Client errors (most 4xx) **should not** be retried automatically. They need a fix or a deliberate replay.
@@ -230,8 +235,8 @@ Language specifics are under Language notes. The general rules:
 
 - **Test first.** New behavior **should** start with a failing test (red, green, refactor). Acceptance-level tests **should** come first for user-facing features. Most of them run against use cases or the API; only critical user flows need a browser (see UI).
 - **Test the core, integration-test the shell.** The functional core **should** be covered by fast unit tests with no mocks. The shell **should** be covered by a small number of tests against real dependencies (real database, real filesystem, a test account).
-- **Mocks only at external boundaries.** Mocks **must** be limited to things the application does not own: network, filesystem, clock, third-party services. Prefer fakes and in-memory implementations over mocks.
-- **An internal mock is a design smell.** Wanting to mock an internal collaborator **should** prompt moving logic into the core, not writing a better mock. In codebases where that change is not available, flag it and proceed.
+- **Test doubles at external boundaries.** Except for the documented legacy case below, substitutions **must** sit at boundaries to systems or facilities the application does not own: network, filesystem, clock, third-party services. This includes stubs (canned responses), mocks (interaction expectations), and fakes (working simplified implementations). Prefer fakes where practical; real internal collaborators remain in the test.
+- **An internal test double is a design smell.** Wanting to replace an internal collaborator **should** prompt moving logic into the core. In legacy code where that refactor is not yet practical, an internal double **may** be used when the PR records the reason and links a tracked follow-up. This permitted legacy case does not require Must-level exception approval.
 - **Structure.** Tests **should** follow arrange, act, assert, with one concept per test.
 - **Names** **should** read as `should <expected behavior> when <condition>`.
 - **Isolation.** Tests, including end-to-end tests, **must not** depend on execution order or shared mutable state.
@@ -275,17 +280,19 @@ Rules a tool can check **should** be enforced by a tool. In the table, Level gov
 | Dependency rules | Core never imports shell or IO modules; no cycles; modules use public entry points. The third-party dependency default and allowlist follow Architecture at their stated levels. | Zero unresolved violations outside approved baselines or exceptions | Must |
 | Dead code | Unused files, exports, and dependencies. | Zero findings | Should |
 | Complexity | Per-function cyclomatic complexity (cognitive in Rust). Exhaustive matches over a union may be suppressed with a reason. | At most 10 per function (Rust: 25, cognitive); projects may require less | Should |
-| Changed-lines coverage | Line and branch coverage of the lines a PR adds or modifies, as far as the language's tools measure it. Deleted code does not count. New code therefore never lowers project coverage while it is below the target. | At least the lower of the project's current coverage and the coverage target; on a project with none yet, the first PR sets it | Must |
+| Changed-lines coverage | Coverage of added or modified executable lines and associated branches, where supported. Compare with a recorded base revision using the same coverage configuration and suite selection. | For each supported metric, at least the lower of base coverage and the target; use the target when the base measurement is absent or zero | Must |
 | Coverage target | Project-wide line and branch coverage. | At least 90%; projects may require more | Should |
 | Mutation testing | Tests catch real changes in core and library code. | A project-set mutation score; the scheduled run fails below it | Should |
 | Change risk (CRAP) | Functions that are both complex and poorly tested. No common tool exists; a small project-specific tool may compute it from coverage and complexity reports. | At most 30 per function | May |
 | Secrets | No committed secrets, scanned in pre-commit and CI (for example gitleaks). | Zero findings | Must |
 | Duplication | Copy-pasted blocks (for example jscpd, or rev-dep in TypeScript), tuned so the rule of three still holds. | Project-defined | May |
-| Unhandled results | Ignored errors, results, and promises (see Robustness). | Zero findings | Must |
-| Per-file maintainability | One score per file combining complexity measures (TypeScript: FTA). | Below 50 | Should |
+| Unhandled results | Detectable ignored failure-bearing or must-use values and unhandled promises (see Robustness); review covers the tool's gaps. | Zero unresolved findings | Must |
+| Per-file maintainability | An optional tool-specific score, used only when it adds actionable information beyond existing complexity checks. | Project-defined for the selected tool and version | May |
 | Package shape | A published library's entry points, types, and module formats resolve the way consumers load them. | Zero findings | Should |
 
-Every test **must** contain at least one assertion, enforced by a lint rule where one exists and by review otherwise. Assertion-free tests raise coverage while checking nothing, which Fowler gives as the extreme case of coverage gamed as a target ([Test Coverage](https://martinfowler.com/bliki/TestCoverage.html)). Coverage only shows what code ran, not that results were checked. That is why the changed-lines rule is the floor, 90% is a target, and mutation testing checks the check.
+Changed-lines coverage does not guarantee project-wide non-regression: deleting covered code or changing execution of unchanged lines can lower total coverage. PRs **should** report project coverage separately and explain decreases. A metric with no eligible lines or branches is not applicable, not zero; unsupported metrics **must** be identified. Projects below the target **should** record an improvement plan.
+
+Every test **must** have an observable failure condition tied to its claimed behavior. Assertions may live in helpers or the test harness; compilation and expected-failure tests use their corresponding checks. Assertion-presence linting **may** detect omissions, but review **must** verify that the test can fail for the relevant defect. Coverage reports execution, not correctness (see [Test Coverage](https://martinfowler.com/bliki/TestCoverage.html)).
 
 The CRAP score (Change Risk Anti-Patterns; Savoia and Evans, 2007) combines both measures per function, with comp as cyclomatic complexity and cov as coverage from 0 to 1:
 
@@ -397,7 +404,7 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 **General**
 
 - Secrets **must not** be committed, logged, or shipped in client code. They come from the environment or a secret manager at runtime.
-- Personal data **should not** be logged. Log IDs instead.
+- Diagnostic fields **should** be limited to those needed for operation. Personal data **should not** be logged; IDs can still identify people. Any justified inclusion **must** document its purpose, access restrictions, and retention, with redaction or pseudonymization where appropriate. These rules apply to errors and logs alike; secrets remain prohibited. See [OWASP logging guidance](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
 - Test and development data **should** be synthetic or anonymized, never copied from production.
 - Input from outside the process **must** be parsed at the boundary (see Design principles).
 - Processes, services, and credentials **should** have the least privilege they need.
@@ -408,9 +415,9 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 
 - Access **must** be denied by default and enforced server-side.
 - Every route **must** declare its authorization policy, and the router **must** reject a route without one. A missing policy, or a policy that errors, fails closed.
-- Data access **must** be scoped to the caller's tenant or ownership, checked per resource, not per route.
+- Data access **must** enforce the resource's authorization policy for the caller, including tenant or ownership constraints where applicable. Public, shared, and administrative access **must** be explicit policies, not bypasses of resource-level checks.
 - A denied request **should** be returned as a value (for example a 403), not thrown as an error: it is an expected outcome.
-- Outbound requests to user-supplied URLs (webhooks, link previews) **must** go through an allowlist or block internal and private address ranges.
+- Outbound requests to user-supplied URLs **must** enforce allowed schemes and destinations against the addresses actually used for connection. Use an allowlist or exclude internal and non-public destinations; disable redirects or apply the same checks to every hop. DNS changes between validation and connection **must not** bypass the policy. See [OWASP SSRF guidance](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
 
 **Configuration (A02).** Defaults **must** be secure. Production configuration **must not** enable debug output, debug-level logs, or verbose errors, and **must not** contain sample credentials.
 
@@ -428,7 +435,7 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 
 **Injection (A05)**
 
-- Queries and commands **must** be parameterized, never built by string concatenation. Shell commands take their arguments as an array, never interpolated into a shell string.
+- Query values **must** be parameterized. Dynamic identifiers or query syntax **must** come from controlled mappings or a builder that safely handles them. Untrusted command inputs **must** be passed as data through argument arrays, with option boundaries enforced where needed, never interpolated into shell syntax.
 - Output **must** be encoded for its context (HTML, HTML attributes, URLs).
 - URLs from users rendered as links **must** be checked against a scheme allowlist (usually http: and https:), using the parsed scheme, not a string match.
 
@@ -439,7 +446,7 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 **Integrity (A08)**
 
 - Untrusted data **must not** be deserialized into executable objects.
-- Signed inbound payloads (webhooks) **must** have their signatures verified before use.
+- Signed inbound payloads **must** pass signature verification and the provider's freshness and replay checks before successful acknowledgment or processing. Preserve the original bytes when the signature covers them; use the provider's verification library where available. Inbox deduplication follows Background work and integrations. See [Stripe's webhook verification example](https://docs.stripe.com/webhooks).
 
 **Logging and alerting (A09).** Security events (authentication failures, authorization denials, privilege changes) **should** be logged and alertable.
 
@@ -451,23 +458,22 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 
 **Where logic goes**
 
-- Components **should** render, not decide. Logic **should** live in pure functions (formatting, derived state, mapping) and in hooks or the framework's equivalent (data fetching, effects, local state).
+- Components **should** handle presentation, with business decisions in the core. Extract substantial formatting, derived state, and mapping into pure functions; hooks or the framework's equivalent own fetching, effects, and local state.
 - In React, the render scope **should** call hooks and pure functions and return markup. Business rules, data transformation, and effect orchestration **should not** be written inline in the component body.
 - Server state **should** come from a data-fetching layer, not be copied into component state.
 - Domain rules **must not** be re-implemented in the UI. Client-side validation is for user experience only; the server **must** still parse and authorize every request.
 
 **Data from the backend**
 
-- The frontend **should** map API responses into its own types at one boundary, so components never read API types directly.
-- A DTO type layer shared with the backend **may** be the input to that mapping. It gives the mapping compile-time checks but does not replace it.
-- API shape changes that preserve meaning (a renamed or restructured field) then touch only the mapping, not components. Changes in meaning still reach the components that depend on it.
+- The frontend **should** map API responses at one boundary when transport types expose irrelevant detail, differ from presentation needs, or would spread likely API changes across components.
+- Shared DTOs **may** be used directly when they fit those needs; an identity mapping adds no isolation. Parsing untrusted input remains required regardless of whether the static type is shared.
 
 **Forms**
 
 - Input fields **should** use the type that matches the data (`email`, `number`, `date`, `tel`, `url`), so devices show the right keyboard and browsers handle basic validation.
 - Forms **should** ask only for what the task needs.
 - Password managers and autofill **must** work: real `<form>` elements, correct `autocomplete` values (`username`, `current-password`, `new-password`, `one-time-code`), and no blocked pasting into credential fields.
-- Keyboard flow **must** stay intact: tab order follows the visual order, Enter submits the form, and focus lands somewhere sensible after submit and on errors. Keyboard shortcuts **may** be added, but **must not** override browser or assistive-technology shortcuts.
+- Forms **must** preserve expected native keyboard behavior, including multiline inputs and composite controls, and offer keyboard-accessible submission. Tab order **must** follow a logical reading order, with focus managed after submission and errors. Keyboard shortcuts **may** be added, but **must not** override browser or assistive-technology shortcuts.
 
 **Devices and rendering**
 
@@ -481,12 +487,12 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 - Every interactive element **must** be reachable and operable by keyboard, with a visible focus indicator.
 - Images **must** have text alternatives (empty for decorative ones), and form controls **must** have labels.
 - Color **must not** be the only carrier of meaning, and contrast **must** meet AA.
-- UIs **should** work with screen readers: a logical heading structure, landmarks, an accessible name on every control, and announced status changes for async updates and errors (for example via live regions). Projects that explicitly do not, and never will, need screen reader support **may** skip this, with the decision recorded; they then do not meet WCAG 2.2 AA.
+- UIs **should** work with screen readers: a logical heading structure, landmarks, an accessible name on every control, and announced status changes for async updates and errors (for example via live regions). An exception **must** record its current scope and reconsideration trigger; a UI lacking this support cannot claim WCAG 2.2 AA conformance.
 - Accessibility lint rules **should** be on (for example oxlint's jsx-a11y rules), and automated checks (for example axe) **should** run in end-to-end tests. These catch a subset of issues; manual keyboard and screen reader passes cover the rest.
 
 **Internationalization**
 
-- User-facing strings **should** live in message catalogs, not inline in components. Projects that will never localize **may** skip this.
+- User-facing strings **should** live in message catalogs. A project with no current localization requirement **may** defer catalogs with a recorded reason and reconsideration trigger.
 - Dates, numbers, and currencies **must** be formatted with locale-aware APIs (for example `Intl`), never by string concatenation.
 - Messages with variables **should** use placeholders and plural rules (for example ICU message format), not concatenated fragments.
 - Layouts **should** tolerate text expansion and right-to-left scripts.
@@ -531,12 +537,12 @@ Tools for the checks in Static analysis:
 | Dead code | rev-dep: orphan files, unused exports, unused dependencies. [knip](https://knip.dev) **may** be added for unused class and enum members, which rev-dep does not detect. |
 | Duplication | rev-dep |
 | Complexity (per function) | oxlint's `eslint/complexity` rule with `max` set to 10 (its default is 20) |
-| Per-file maintainability | [FTA](https://github.com/sgb-io/fta) (Halstead and cyclomatic measures) |
+| Per-file maintainability | [FTA](https://github.com/sgb-io/fta), if useful beyond complexity checks; record the version and chosen threshold |
 | Test coverage | Vitest coverage (`@vitest/coverage-v8`), line and branch |
-| Every test asserts | An `expect-expect` lint rule, or `expect.hasAssertions()` |
+| Test failure conditions | Review; `expect-expect` or `expect.hasAssertions()` can detect some missing assertions, with harness and helper conventions accounted for |
 | Mutation testing | [StrykerJS](https://stryker-mutator.io) |
 | Change risk (CRAP) | No common tool; compute from coverage and complexity reports |
-| Unhandled results | oxlint's type-aware `no-floating-promises` with `ignoreVoid` set to false (its default is true) |
+| Unhandled results | oxlint's type-aware `no-floating-promises` with `ignoreVoid` set to false; review synchronous failure-bearing results separately |
 | Secrets | Language-agnostic tools (see Static analysis) |
 | Package shape | publint and attw (@arethetypeswrong/cli) on the packed package |
 
@@ -562,9 +568,9 @@ Tools for the checks in Static analysis:
 | Dead code | `unused` via golangci-lint; `deadcode` from golang.org/x/tools |
 | Complexity | `gocyclo` or `cyclop` via golangci-lint |
 | Exhaustiveness | `exhaustive` via golangci-lint |
-| Unhandled results | `errcheck` via golangci-lint |
+| Unhandled results | `errcheck` via golangci-lint; review subsequent handling of assigned errors |
 | Test coverage | `go test -cover` (statement coverage only; no standard branch coverage tool) |
-| Every test asserts | No common tool; review checks it |
+| Test failure conditions | Review assertions, helpers, and harness outcomes |
 | Mutation testing | `gremlins`, which is slow on large modules; no other well-maintained option is known |
 | Change risk (CRAP) | No common tool |
 | Secrets, duplication | Language-agnostic tools (see Static analysis) |
@@ -590,9 +596,9 @@ Tools for the checks in Static analysis:
 | Dependency rules | Workspace crate boundaries; `cargo-deny` for third-party dependencies |
 | Dead code | Compiler `dead_code` lint; `cargo-machete` or `cargo-udeps` for unused dependencies |
 | Complexity | `clippy::cognitive_complexity`, enabled explicitly since it is allow-by-default. Rust uses cognitive instead of cyclomatic complexity, with clippy's default threshold of 25. |
-| Unhandled results | Compiler `unused_must_use` lint, denied by `-D warnings` |
+| Unhandled results | Compiler `unused_must_use` lint, denied by `-D warnings`; annotate project-defined must-use values and review remaining failure paths |
 | Test coverage | `cargo-llvm-cov` (branch coverage needs nightly) |
-| Every test asserts | No common tool; review checks it |
+| Test failure conditions | Review assertions, helpers, and harness outcomes |
 | Mutation testing | `cargo-mutants` |
 | Change risk (CRAP) | No common tool |
 | Secrets, duplication | Language-agnostic tools (see Static analysis) |
