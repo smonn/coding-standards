@@ -290,7 +290,7 @@ Rules a tool can check **should** be automated. Table levels govern check adopti
 - When a tool's default conflicts with a project rule, the repository **should** configure the tool, including AI agent settings.
 - Checks **should** be fast enough to run on every iteration, including every agent loop. Slow checks (mutation testing, full-repo analysis) **may** run on a schedule with a documented owner and failure-response process. The required suite still runs before completion.
 - Findings **should** be errors or off. Warnings that never fail the build become noise.
-- New code **must** meet Must-level thresholds and **should** meet Should-level ones. Project coverage and changed-lines coverage have separate thresholds below.
+- New code **must** meet Must-level thresholds from day one and **should** meet Should-level ones. Project coverage and changed-lines coverage have separate thresholds below.
 
 **Baselines**
 
@@ -489,7 +489,7 @@ Applies to design docs, PR descriptions, reviews, and agent output alike.
 - CI **may** check PR descriptions against the template's rules (required sections, banned content).
 - PR titles **should** use the Conventional Commits format: `feat(billing): add proration`. The title **should** be imperative and stand alone in history.
 - Descriptions **should** explain the change, its reason, limitations, and validation without relying on linked pages. Authors **should** update them before merge.
-- Description length **should** scale with impact and risk. A security-setting change may need more explanation than a large mechanical rename.
+- Description length **should** scale with impact and risk, not its line count. A security-setting change may need more explanation than a large mechanical rename.
 - A description **should** cite a standard only where the change deviates from it. Following a standard needs no citation.
 - Each fact **should** appear once in a description.
 - Notes about other work **should** go on that work's issue, not in the PR.
