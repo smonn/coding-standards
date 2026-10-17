@@ -1,0 +1,9 @@
+# Agent and editor state
+.claude/
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
