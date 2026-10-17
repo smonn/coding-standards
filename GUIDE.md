@@ -26,8 +26,6 @@ Most rules in Testing follow from functional core, imperative shell. The core is
 
 The shell supplies values such as current time, a generated ID, or a seed. External dependencies behind ports include databases, IdPs, email, payments, and queues.
 
-Too many bounded contexts obscure where new code belongs.
-
 Gary Bernhardt's Boundaries describes functional core, imperative shell.
 
 ## Contracts and migrations

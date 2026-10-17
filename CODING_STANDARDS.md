@@ -108,7 +108,7 @@ Default to functional core, imperative shell. Business logic determines domain o
 - Adapters **should** map database rows and ORM entities to domain objects.
 - HTTP handlers, CLI commands, and job runners **must not** contain business logic. They parse and check input, call use cases, and map results to responses.
 - Dependencies **must** point inward: shell to core, never reverse.
-- **Bounded contexts.** Contexts **should** follow real domain boundaries, not every product noun.
+- **Bounded contexts.** Contexts **should** follow real domain boundaries, not every product noun. If engineers cannot tell where new code belongs, there are too many contexts.
 - **Modular monolith first.** You **should** prefer enforced module boundaries in one deployable over premature service splits.
 - Significant architecture decisions **should** have short repository ADRs: context, decision, consequences.
 - **Optimistic concurrency** **may** replace long transactions: an explicit integer version column, compared on write, retrying or aborting on mismatch.
