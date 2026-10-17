@@ -273,7 +273,7 @@ Project rules and language idioms **must** override these casing defaults and na
 
 *Why:* failing checks clarify rules, enforce them consistently for humans and agents, and speed feedback in agent loops.
 
-Tool-checkable rules **should** be automated. Table levels govern adoption and thresholds; see [rule levels](#purpose-and-scope). [Language guidance](#language-guidance-and-tools) maps outcomes to tools.
+Tool-checkable rules **should** be automated. Table levels govern adoption and thresholds; see [rule levels](#purpose-and-scope). [Language guidance](#language-guidance-and-tools) covers language-specific settings and tool gaps; the [guide](https://github.com/smonn/coding-standards/blob/main/GUIDE.md#language-tools) suggests tools.
 
 **How checks run**
 
@@ -544,11 +544,9 @@ Adapted for authors and reviewers from [Google's engineering practices](https://
 
 Read the guidance for each language used. Go and Rust guidance is provisional.
 
-Repositories **should** pin tool versions and explicitly configure selected rules. Equivalent tools **may** replace these options if they enforce the same [outcomes and thresholds](#static-analysis-and-deterministic-checks).
+Repositories **should** pin tool versions and explicitly configure selected rules. Projects choose tools that enforce the [outcomes and thresholds](#static-analysis-and-deterministic-checks); the [guide](https://github.com/smonn/coding-standards/blob/main/GUIDE.md#language-tools) suggests options per language.
 
 ### Shared checks
-
-Options: [gitleaks](https://github.com/gitleaks/gitleaks) for secrets; [jscpd](https://github.com/kucherenko/jscpd) for duplication, tuned to the rule of three. These add no requirements.
 
 Compute optional [CRAP scoring](https://github.com/smonn/coding-standards/blob/main/GUIDE.md#crap-scoring) from compatible coverage and cyclomatic-complexity reports, not Rust's cognitive complexity.
 
@@ -562,6 +560,8 @@ Compute optional [CRAP scoring](https://github.com/smonn/coding-standards/blob/m
 - Boundary validation **should** produce typed values in one step via schema parsers (Zod or custom), implementing [boundary parsing](#design-principles).
 - Implement [exhaustiveness](#types) with a fallback `never` check, accepting only compiler-proven unreachable values.
 - Implement [value objects](#types) with brands or tags and parsing constructors. Assertions can forge brands and follow the assertion rule.
+- Unused class and enum members **may** be checked with [knip](https://knip.dev) when the selected dead-code checker does not cover them.
+- Configure unhandled-promise checks to be type-aware and to count `void` as unhandled (for example oxlint's `no-floating-promises` with `ignoreVoid: false`). Review synchronous failure-bearing results separately.
 
 Invariants use a throwing type-guard helper, replacing `!` for required values:
 
@@ -576,25 +576,6 @@ invariant(household, `Household ${householdId} missing after insert`);
 
 [Further rationale](https://github.com/smonn/coding-standards/blob/main/GUIDE.md#typescript).
 
-#### Tool mapping
-
-| Check | Tool |
-| --- | --- |
-| Typechecking | `tsc --noEmit` |
-| Linting | [oxlint](https://oxc.rs) |
-| Formatting | [oxfmt](https://oxc.rs) |
-| Dependency rules | [rev-dep](https://rev-dep.com): module boundaries, restricted imports, circular imports |
-| Dead code | rev-dep: orphan files, unused exports and dependencies. [knip](https://knip.dev) **may** cover unused class and enum members when the selected dependency checker does not. |
-| Duplication | rev-dep |
-| Complexity (per function) | oxlint `eslint/complexity`, `max: 10` (default: 20) |
-| Per-file maintainability | [FTA](https://github.com/sgb-io/fta) (Halstead and cyclomatic measures) |
-| Test coverage | Vitest (`@vitest/coverage-v8`), line and branch |
-| Every test asserts | `expect-expect` under [assertion requirements](#testing); `expect.hasAssertions()` checks presence at runtime |
-| Mutation testing | [StrykerJS](https://stryker-mutator.io) |
-| Unhandled results | Type-aware oxlint `no-floating-promises`, `ignoreVoid: false`; review synchronous failure-bearing results separately |
-| Secrets | See Shared checks |
-| Package shape | publint and attw (@arethetypeswrong/cli) on the packed package |
-
 ### Go (provisional)
 
 - Expected outcomes **should** return `error` values. Wrap each layer with context: `fmt.Errorf("load household %s: %w", id, err)`. Callers **should** branch using `errors.Is` and `errors.As`, never message strings.
@@ -608,23 +589,8 @@ invariant(household, `Household ${householdId} missing after insert`);
 - Tests **should** be table-driven when cases share a shape.
 - Configure [exhaustive](https://github.com/nishanths/exhaustive) so `default` does not replace named cases when new enum values require changes ([Types](#types)).
 - Go’s linear-time regexp package is exempt from the [backtracking check](#security).
-
-#### Tool mapping
-
-| Check | Tool |
-| --- | --- |
-| Formatting | `gofmt` or `goimports` |
-| Linting | `go vet` plus `golangci-lint` (including `staticcheck`) |
-| Typechecking | The compiler |
-| Dependency rules | `depguard` via golangci-lint |
-| Dead code | `unused` via golangci-lint; `deadcode` from golang.org/x/tools |
-| Complexity | `gocyclo` or `cyclop` via golangci-lint |
-| Exhaustiveness | `exhaustive` via golangci-lint |
-| Unhandled results | `errcheck` via golangci-lint detects ignored errors; review assigned errors' subsequent handling |
-| Test coverage | `go test -cover` (statements only; no standard branch tool) |
-| Every test asserts | See [assertion requirements](#testing) |
-| Mutation testing | `gremlins`; evaluate project runtime before choosing schedule |
-| Secrets, duplication | See Shared checks |
+- `errcheck` detects ignored errors; review assigned errors' subsequent handling.
+- `go test -cover` measures statements only; Go has no standard branch-coverage tool.
 
 ### Rust (provisional)
 
@@ -639,19 +605,6 @@ invariant(household, `Household ${householdId} missing after insert`);
 - Layering **should** use workspace crates to enforce [dependency direction](#architecture).
 - Integration tests **should** live in `tests/`.
 - The linear-time regex crate is exempt from the [backtracking check](#security); backtracking crates such as fancy-regex are covered.
-
-#### Tool mapping
-
-| Check | Tool |
-| --- | --- |
-| Formatting | `rustfmt` |
-| Linting | `clippy` with warnings as errors (`-D warnings`) |
-| Typechecking | The compiler |
-| Dependency rules | Workspace crate boundaries; `cargo-deny` for third-party dependencies |
-| Dead code | Compiler `dead_code`; `cargo-machete` or `cargo-udeps` for unused dependencies |
-| Complexity | Explicitly enable allow-by-default `clippy::cognitive_complexity`. Rust uses cognitive, not cyclomatic complexity; clippy's default threshold is 25. |
-| Unhandled results | Compiler `unused_must_use` covers annotated values and functions, denied by `-D warnings`; annotate project-defined must-use values and review remaining failure paths |
-| Test coverage | `cargo-llvm-cov` (branch coverage needs nightly) |
-| Every test asserts | See [assertion requirements](#testing) |
-| Mutation testing | `cargo-mutants` |
-| Secrets, duplication | See Shared checks |
+- Explicitly enable allow-by-default `clippy::cognitive_complexity` for the [complexity check](#static-analysis-and-deterministic-checks).
+- Compiler `unused_must_use` covers annotated values and functions, denied by `-D warnings`; annotate project-defined must-use values and review remaining failure paths.
+- Branch coverage with `cargo-llvm-cov` needs nightly.
