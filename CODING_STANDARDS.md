@@ -84,7 +84,7 @@ Product, business, and customer needs drive the feature set and inform the techn
 
 Simple over easy (in Rich Hickey's sense): fewer things braided together, even when the braided version is quicker to write.
 
-- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions for hypothetical future requirements. This does not apply to structure that is expensive to retrofit (ports for external dependencies, an outbox, message catalogs, value objects): it **may** be built up front, with the retrofit cost stated.
+- **YAGNI, aggressively.** You **must not** add parameters, options, or abstractions for hypothetical future requirements. Structure expensive to retrofit is an exception: ports for external dependencies, an outbox, message catalogs, and value objects **may** be built up front with a concrete project-specific consequence of deferring them recorded. Other upfront structure **may** be introduced when the decision records evidence of retrofit risk, the deferred alternative, and present cost. Concrete qualitative evidence suffices; measure when a measurable fact decides the choice.
 - **Rule of three for DRY.** You **should** abstract duplication only once it reveals a real pattern, usually on the third occurrence. Two similar blocks are cheaper than a wrong abstraction.
 - **Simplest correct solution.** You **should** pick the simplest approach that solves the problem correctly. Between two approaches of similar complexity, pick the more readable one. Cleverness needs a measured reason (see Performance).
 - **Pure functions, immutable data, explicit data flow.** You **should** prefer these over hidden state and side effects.
@@ -105,7 +105,7 @@ Business logic determines domain outcomes and enforces domain invariants. Orches
 
 - **Functional core.** Business decisions **should** live in pure functions over values. The core takes already-loaded inputs and returns values, including descriptions of what to do next.
 - **No impure APIs in the core.** The core **must not** use clock, randomness, filesystem, network, database, environment, or other IO APIs directly. The shell reads them and passes values in (the current time, a generated ID, a seed). Effects go out as returned values for the shell to execute.
-- **No third-party dependencies in the core.** The core **should** depend only on the standard library and the project's own code. It is the main value of the software, and a dependency there ties that value to someone else's releases, licensing, and security. Allowed dependencies (for example a decimal library where the standard one is inadequate) **must** be deliberate, documented, and wrapped behind the project's own types, and listed in the dependency check's allowlist.
+- **No third-party dependencies in the core.** The core **should** depend only on the standard library and the project's own code. It is the main value of the software, and a dependency there ties that value to someone else's releases, licensing, and security. Allowed dependencies (for example a decimal library where the standard one is inadequate) **must** be deliberate, documented, wrapped behind project-owned operations and types, and listed in the dependency check's allowlist. Vendor types **must** stay inside the wrapper; an alias or re-export alone does not qualify. Wrap only the operations used. Where the dependency check supports per-path allowlists, it **must** allowlist the package only for its wrapper's path.
 - **Imperative shell.** IO, mutation, and calls to external systems **should** live in a thin orchestration layer at the edges. The shell owns operational control flow and calls the core for business decisions.
 - **Ports and adapters.** External dependencies (database, IdP, email, payments, queues) **should** sit behind a port the application owns. Adapters implement ports. Third-party types **should not** leak past the adapter.
 - **Persistence models.** Adapters **should** map database rows and ORM entities to domain objects, isolating schema changes.
@@ -297,7 +297,7 @@ Rules a tool can check **should** be automated. Table levels govern check adopti
 - Existing lint, dependency-boundary, and dead-code findings **may** use reviewed per-finding baselines. Complexity, duplication, maintainability, mutation score, and CRAP **may** use measured baselines at function, file, or project scope. The repository **must** record the adoption revision and scope. New or worsened violations fail; fixes cannot offset different findings.
 - Baselines **must** tighten as findings are removed or metrics improve. Formatting, compiler errors, secrets, unhandled failure-bearing results, and package-resolution failures cannot be baselined. Security findings **must** use individual exceptions, even if reported by a baseline-capable tool.
 - Coverage has no stored baseline; it uses the changed-lines rule in the table instead.
-- Metric-driven changes **should** report other affected metrics before and after, and preserve readable structure rather than optimize scores alone.
+- Metric-driven changes **should** report other affected metrics before and after, and preserve readable structure rather than optimize scores alone. A score alone does not justify splitting a cohesive file; exceeding a Should-level threshold follows the stated-reason requirement in [Exceptions](#exceptions).
 
 **What to check**
 
@@ -309,7 +309,7 @@ Rules a tool can check **should** be automated. Table levels govern check adopti
 | Dependency rules | Architecture boundaries and allowlists; no cycles; imports through public entry points. | Zero unresolved violations outside baselines or exceptions | Must |
 | Dead code | Unused files, exports, and dependencies. | Zero findings | Should |
 | Complexity | Per-function cyclomatic complexity (cognitive in Rust). Exhaustive matches over a union may be suppressed with a reason. | At most 10 per function (Rust: 25, cognitive); projects may require less | Should |
-| Changed-lines coverage | Coverage of added or modified executable lines and associated branches, where supported. Compare with a recorded base revision using the same coverage configuration and suite selection. | For each supported metric, at least the lower of base coverage and the target; on a project with none yet, the first PR sets it | Must |
+| Changed-lines coverage | Coverage of added or modified executable lines and associated branches, where supported. Compare with a recorded base revision using the same coverage configuration and suite selection. | For each supported metric, at least the lower of base coverage and the target; the first measured PR establishes coverage for a previously unmeasured project | Must |
 | Coverage target | Project-wide line and branch coverage. | At least 90%; projects may require more | Should |
 | Mutation testing | Tests catch real changes in core and library code. | A project-set mutation score; the scheduled run fails below it | Should |
 | Change risk (CRAP) | Combined complexity and coverage; definition in [Shared checks](#shared-checks). | At most 30 per function | May |
@@ -318,6 +318,8 @@ Rules a tool can check **should** be automated. Table levels govern check adopti
 | Unhandled results | Detectable ignored failure-bearing or must-use values and unhandled promises (see Robustness); review covers the tool's gaps. | Zero unresolved findings | Must |
 | Per-file maintainability | One score per file combining complexity measures (TypeScript: FTA). | Below 50 | Should |
 | Package shape | A published library's entry points, types, and module formats resolve the way consumers load them. | Zero findings | Should |
+
+The first measured PR establishes coverage even when adopting checks in an existing project. A measured zero is valid. Missing established base measurements **must** be recovered or covered by a valid gate waiver; they **must not** reset the floor. For each supported metric, while project coverage is below its target, changed-lines coverage **should** meet that target; each shortfall needs a stated reason in the PR.
 
 Changed-lines coverage does not guarantee project-wide non-regression: deleting covered code or changing execution of unchanged lines can lower total coverage. PRs **should** report project coverage separately and explain decreases. A metric with no eligible lines or branches is not applicable, not zero; unsupported metrics **must** be identified. Projects below the target **should** record an improvement plan.
 
@@ -404,8 +406,8 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 
 **Data from the backend**
 
-- The frontend **should** map API responses into its own types at one boundary, so components never read API types directly.
-- A DTO type layer shared with the backend **may** be the input to that mapping. It gives the mapping compile-time checks but does not replace it.
+- The frontend **should** map API responses through a boundary function into independent frontend-owned types, so components never read API types directly.
+- A DTO type layer shared with the backend **may** be the input to that mapping. The boundary function **may** return the original object when it fits the frontend-owned type; an alias of the API type alone does not replace the mapping.
 - API shape changes that preserve meaning (a renamed or restructured field) then touch only the mapping, not components. Changes in meaning still reach the components that depend on it.
 
 **Forms**
@@ -427,15 +429,19 @@ Grouped by [OWASP Top 10:2025](https://owasp.org/Top10/2025/) category, after a 
 - Every interactive element **must** be reachable and operable by keyboard, with a visible focus indicator.
 - Images **must** have text alternatives (empty for decorative ones), and form controls **must** have labels.
 - Color **must not** be the only carrier of meaning, and contrast **must** meet AA.
-- UIs **should** work with screen readers: a logical heading structure, landmarks, an accessible name on every control, and announced status changes for async updates and errors (for example via live regions). Projects that explicitly do not, and never will, need screen reader support **may** skip this, with the decision recorded; they then do not meet WCAG 2.2 AA.
+- UIs **should** work with screen readers: a logical heading structure, landmarks, an accessible name on every control, and announced status changes for async updates and errors (for example via live regions). Screen-reader support follows Scoped deferrals below; a UI deferring it does not meet WCAG 2.2 AA.
 - Accessibility lint rules **should** be on (for example oxlint's jsx-a11y rules), and automated checks (for example axe) **should** run in end-to-end tests. These catch a subset of issues; manual keyboard and screen reader passes cover the rest.
 
 **Internationalization**
 
-- User-facing strings **should** live in message catalogs, not inline in components. Projects that will never localize **may** skip this.
+- User-facing strings **should** live in message catalogs, not inline in components. Message catalogs follow Scoped deferrals below.
 - Dates, numbers, and currencies **must** be formatted with locale-aware APIs (for example `Intl`), never by string concatenation.
 - Messages with variables **should** use placeholders and plural rules (for example ICU message format), not concatenated fragments.
 - Layouts **should** tolerate text expansion and right-to-left scripts.
+
+**Scoped deferrals**
+
+Screen-reader support and message catalogs **may** be deferred when current scope does not need them and the repository records that scope, the reason, and a concrete reconsideration trigger. When a trigger occurs, review the deferral and either implement support or renew it with an updated reason and trigger. These permitted deferrals do not require Must-level exception approval.
 
 **Testing**
 
