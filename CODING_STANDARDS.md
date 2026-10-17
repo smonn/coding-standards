@@ -65,8 +65,8 @@ These standards stand alone; the optional [guide](https://github.com/smonn/codin
 - **Should exceptions** use PR descriptions.
 - **Must exceptions** need review approval. Those persisting after merge **must** have a repository record: inline suppression, configuration comment, or exceptions file. PR-scoped waivers use the PR record. Temporary exceptions **must** link an issue with owner and removal condition from affected code, configuration, exception record, or waiver. Permanent exceptions **must** explain inapplicability and reconsideration conditions; violations needing repair remain temporary. Changed assumptions or scope **must** prompt reconsideration at the original level.
 - **Approval** comes from another reviewer; solo maintainers approve their own exceptions and record that in the PR. AI reviews never count as approval.
-- **Suppressions**, inline or configured (including `skipLibCheck` and path ignores), **must** carry reasons and required exception references. Stale ignores **should** fail checks. Suppressions follow the underlying rule's level. Formatting and unsuppressed compiler errors cannot be waived; type-check suppressions follow [Types](#types).
-- **Gate waivers.** Checks without local suppression **may** use PR-scoped waivers at the underlying rule's level. The PR **must** record the failed check, reason, any required approval, and a CI-recognized label or equivalent marker. CI **should** validate approval and bind authorization to the reviewed revision automatically. Without revision binding, the PR **must** record revalidation after later pushes, including required approval. Local runs report actual failures without needing PR state. CI **should** distinguish waived failures from passes; waivers never turn failures into passing measurements.
+- **Suppressions**, inline or configured (including `skipLibCheck` and path ignores), **must** carry reasons and required exception references. Suppression directives (`@ts-ignore`, `#[allow(...)]`, `//nolint`) **must** also explain what would remove the need. Stale ignores **should** fail checks. Suppressions follow the underlying rule's level. Formatting and unsuppressed compiler errors cannot be waived; type-check suppressions follow [Types](#types).
+- **Gate waivers.** Checks without local suppression **may** use PR-scoped waivers at the underlying rule's level. The PR **must** record the failed check, reason, any required approval, and a CI-recognized label or equivalent marker. CI **should** validate approval and bind authorization to the reviewed revision automatically. Without revision binding, the PR **must** record revalidation after later pushes, including required approval. Local runs report actual failures without needing PR state. See [result reporting](#static-analysis-and-deterministic-checks); waivers never turn failures into passing measurements.
 - **Standing scopes.** Checks **may** exclude documented change categories through permanent exceptions at the underlying level. Identity exemptions **must** account for PR control and subsequent updates using trusted metadata and repository permissions. Same-repository branches **may** establish trust through write permissions matching the exemption; branch names alone cannot. Bot exemptions **must** cover later pushes by others. CI **must** reevaluate eligibility on updates and report the selected suite; uncertainty runs the full required suite.
 - **Lowering code health.** Reviewers **should** identify concrete maintainability, correctness, or safety regressions. PRs accepting identified regressions **must** record a temporary Must exception or declare an emergency.
 - **Emergencies** are production outages, major user-affecting bugs, legal issues, security holes, and launches with hard deadlines and serious consequences. They exclude shipping sooner, soft deadlines, end-of-week pressure, absent reviewers, same-day managerial requests, and rolling back PRs that broke tests or builds.
@@ -235,7 +235,7 @@ Project rules and language idioms **must** override these casing defaults and na
 - The strictest practical compiler or checker settings **should** be on.
 - Escape hatches that disable checking (TypeScript `any`, unnecessary Rust `unsafe`) **must not** be used to silence the compiler. Use the top type (`unknown` in TypeScript) and narrow. Go's `any` follows [Go guidance](#go-provisional).
 - Unchecked assertions **should** be a last resort. Each **must** explain its safety and why inference or narrowing cannot establish it. Checked conversions need no assertion justification. Potentially lossy conversions **must** check the valid range or document why loss is intentional.
-- Suppression directives (`@ts-ignore`, `#[allow(...)]`, `//nolint`) **must** explain why and what would remove the need. Approval and records follow [Exceptions](#exceptions).
+- Suppression directives follow [Exceptions](#exceptions).
 - Non-null assertions or unwraps **must not** be used on values that can legitimately be absent at runtime; handle absence explicitly.
 - Exhaustiveness checking **must** cover sum-type matches. Where adding a variant must force a change, matches **must** handle every variant explicitly or use checked-unreachable branches. Language-required fallbacks, such as Rust's external `#[non_exhaustive]` enums, are exempt. See [Language guidance](#language-guidance-and-tools).
 - Domain values with rules **should** use immutable value objects where reasonable, constructed through parsers: IDs, formatted strings, bounded quantities. Values without rules beyond primitive types stay primitive. [Language guidance](#language-guidance-and-tools) covers construction and bypasses.
@@ -273,7 +273,7 @@ Project rules and language idioms **must** override these casing defaults and na
 
 *Why:* failing checks clarify rules, enforce them consistently for humans and agents, and speed feedback in agent loops.
 
-Tool-checkable rules **should** be automated. Table levels govern adoption and thresholds; findings retain their originating rule's level. [Language guidance](#language-guidance-and-tools) maps outcomes to tools.
+Tool-checkable rules **should** be automated. Table levels govern adoption and thresholds; see [rule levels](#purpose-and-scope). [Language guidance](#language-guidance-and-tools) maps outcomes to tools.
 
 **How checks run**
 
@@ -312,7 +312,7 @@ Tool-checkable rules **should** be automated. Table levels govern adoption and t
 | Change risk (CRAP) | Complexity and coverage; [explanation](https://github.com/smonn/coding-standards/blob/main/GUIDE.md#crap-scoring). | At most 30 per function | May |
 | Secrets | Pre-commit and CI scanning. | Zero findings | Must |
 | Duplication | Copy-pasted blocks, preserving rule of three. | Project-defined | May |
-| Unhandled results | Detectable ignored failure-bearing/must-use values and unhandled promises (see Robustness); review covers tool gaps. | Zero unresolved findings | Must |
+| Unhandled results | Detectable ignored failure-bearing/must-use values and unhandled promises; see [result-handling review](#robustness). | Zero unresolved findings | Must |
 | Per-file maintainability | Combined complexity measures (TypeScript: FTA). | Below 50 | Should |
 | Package shape | Published library entry points, types, module formats resolve as consumers load them. | Zero findings | Should |
 
