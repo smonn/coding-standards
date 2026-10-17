@@ -607,4 +607,4 @@ invariant(household, `Household ${householdId} missing after insert`);
 - The linear-time regex crate is exempt from the [backtracking check](#security); backtracking crates such as fancy-regex are covered.
 - Explicitly enable allow-by-default `clippy::cognitive_complexity` for the [complexity check](#static-analysis-and-deterministic-checks).
 - Compiler `unused_must_use` covers annotated values and functions, denied by `-D warnings`. Project-defined must-use values **must** be annotated. Review remaining failure paths ([Robustness](#robustness)).
-- Branch coverage with `cargo-llvm-cov` needs nightly.
+- Branch coverage with `cargo-llvm-cov` needs nightly; projects on stable toolchains treat it as unsupported ([coverage](#static-analysis-and-deterministic-checks)).
