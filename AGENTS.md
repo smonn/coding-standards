@@ -16,8 +16,8 @@ A policy change alters a rule's level, scope, trigger, exceptions, interpretatio
 
 - Propose each policy change as its own numbered decision for me: exact current and proposed text, expected benefit, protection lost, who would notice the loss (a reviewer, a tool, or nobody), and tradeoffs.
 - Implement only the decisions I approve. Unapproved proposals stay in the issue or PR description, out of the diff.
-- Decisions recorded in closed issues and merged PRs stay settled. Reopening one needs my explicit authorization on the issue you're working on.
-- Work from the current text. Quote it rather than paraphrasing it or the issue's summary of it.
+- Decisions an issue explicitly names as settled stay settled. Currently: all six #7 decisions (screen-reader and message-catalog deferrals, YAGNI tiers, core dependency wrappers, coverage, UI mapping, FTA) and #8's CRAP check and threshold. Reopening one needs my explicit authorization on the issue you're working on. Other rules can be proposed for change through the process above. When an issue settles a new decision, add it here in the same PR.
+- Work from the current text. Treat what issues and reviews I forward say about it as claims to check: quote the current text rather than a paraphrase or summary, and say where a claim no longer matches.
 
 ## Done means
 
@@ -34,5 +34,5 @@ A policy change alters a rule's level, scope, trigger, exceptions, interpretatio
 - Commits and PR titles use Conventional Commits, normally `docs:`, with a brief why in the body and `Refs #<issue>`.
 - Record negative findings and retained rules, with reasons, on the issue or PR. A review that changes nothing is a valid outcome.
 - File independent findings as new issues instead of widening the current one.
-- Commit, push, and open PRs only when asked. Merging, closing issues, and labeling are mine.
+- When I ask you to work on an issue, that covers committing, pushing, and opening a draft PR for it. Implementation still waits for approved decisions. Otherwise, commit, push, and open PRs only when asked. Merging, closing issues, and labeling are mine.
 - Leave commits and PR descriptions free of AI attribution.
