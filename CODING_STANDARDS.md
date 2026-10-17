@@ -53,7 +53,7 @@ Compliance covers applicable capabilities: libraries need not add servers, datab
 - **Should**: strong default; exceptions need a stated reason.
 - **May**: option worth considering; neither choice needs justification.
 
-Every binding rule has a level; examples and rationale add no requirements. Automation preserves levels, even in required checks. Projects **may** override style, naming, and Should defaults with repository-recorded reasons; other Musts require scoped exceptions, never project-wide weakening. Projects **may** tighten any rule. [Exceptions](#exceptions) defines the process.
+Every binding rule has a level, stated or inherited. An unleveled instruction takes the level of the rule it implements, in the same bullet or paragraph or through its link. Conditions and follow-up steps attached to a May option bind whoever takes the option. Examples and rationale add no requirements. Automation preserves levels, even in required checks. Projects **may** override style, naming, and Should defaults with repository-recorded reasons; other Musts require scoped exceptions, never project-wide weakening. Projects **may** tighten any rule. [Exceptions](#exceptions) defines the process.
 
 These standards stand alone; the optional [guide](https://github.com/smonn/coding-standards/blob/main/GUIDE.md) adds explanation and examples, never rules.
 
@@ -98,7 +98,7 @@ Simple over easy: fewer things braided together, even when braiding is quicker t
 
 *Why:* isolating the core business value from IO and vendors keeps it testable, portable, and cheap to change.
 
-Default to functional core, imperative shell. Business logic determines domain outcomes and enforces invariants; orchestration controls IO, retries, transactions, cancellation, and response mapping. External-dependency ports are the default; core wrappers and UI mappings follow their own rules. Additional boundaries **should** isolate an identified source of change, enforce an invariant, or simplify consumers; otherwise they **may** be omitted with a recorded reason.
+Code **should** default to functional core, imperative shell. Business logic determines domain outcomes and enforces invariants; orchestration controls IO, retries, transactions, cancellation, and response mapping. External-dependency ports are the default; core wrappers and UI mappings follow their own rules. Additional boundaries **should** isolate an identified source of change, enforce an invariant, or simplify consumers; otherwise they **may** be omitted with a recorded reason.
 
 - **Functional core.** Business decisions **should** be pure functions of already-loaded values, returning values including descriptions of next actions.
 - The core **must not** directly use clock, randomness, filesystem, network, database, environment, or other IO APIs. The shell passes their values in (for example current time) and executes effects returned as values.
@@ -246,7 +246,7 @@ Project rules and language idioms **must** override these casing defaults and na
 *Why:* inevitable failures need visibility, internal detail, external safety, and protection against silent state corruption.
 
 - Internal errors **must** identify what failed and expected versus actual state where useful, using only diagnostic fields allowed by Security: `Chore 01HX3 not found in household 01HX9`, not `Not found`.
-- Client-facing errors **must not** leak internals: stack traces, internal IDs, query details, existence leaks ("user exists"). Return stable actionable error codes, correlated to internal errors by request ID.
+- Client-facing errors **must not** leak internals: stack traces, internal IDs, query details, existence leaks ("user exists"). Client-facing errors **should** return stable actionable error codes, correlated to internal errors by request ID.
 - Expected outcomes (not found, rejected, conflict) **should** be return-type values.
 - Invariant violations **must** throw or panic and abort the affected operation. Request or worker boundaries **may** catch, report, and isolate failure; they **must not** resume work depending on the violated invariant. Processes **must** terminate when shared state is untrustworthy. See the [TypeScript invariant helper](#typescript).
 - You **should** define errors out of existence where semantics allow: idempotent operations, bounded retries masking low-level transient failures, centralized handling instead of every call site.
@@ -260,7 +260,7 @@ Project rules and language idioms **must** override these casing defaults and na
 
 - New behavior **should** start with a failing test (red, green, refactor); user-facing features **should** start with acceptance tests, mostly against use cases or the API. Only critical user flows need a browser (see UI).
 - Pure logic, including UI formatters, reducers, derived state, and functions behind hooks, **should** have fast unit tests. The shell **should** have a few focused integration tests against real dependencies (for example a real database).
-- **Test doubles.** Except for documented legacy cases below, stubs (canned responses), mocks (interaction expectations), and fakes (working simplified implementations) **must** replace only systems or facilities the application does not own: network, filesystem, clock, third-party services. Prefer fakes where practical; keep real internal collaborators.
+- **Test doubles.** Except for documented legacy cases below, stubs (canned responses), mocks (interaction expectations), and fakes (working simplified implementations) **must** replace only systems or facilities the application does not own: network, filesystem, clock, third-party services. Fakes **should** be preferred where practical. Keep real internal collaborators.
 - **Internal doubles signal a design smell.** Wanting to replace an internal collaborator **should** prompt moving logic into the core. Where a legacy refactor is not yet practical, an internal double **may** be used with a PR-recorded reason and tracked follow-up link; no Must-level approval is needed.
 - Tests **should** use arrange, act, assert, with one concept per test.
 - **Names** **should** read `should <expected behavior> when <condition>`.
@@ -341,7 +341,7 @@ General practices, then [OWASP Top 10:2025](https://owasp.org/Top10/2025/) categ
 **General**
 
 - Secrets **must not** be committed, logged, or shipped in clients; obtain them from the environment or a secret manager at runtime.
-- Diagnostic fields **should** be limited to operational needs. Personal data **should not** be logged. Log opaque internal IDs rather than direct identifiers (names, emails). A shared logging policy **must** record purpose, access, and retention for included personal data, including pseudonymous IDs. Redact or pseudonymize where appropriate. These rules cover errors and logs; secrets remain prohibited. See [OWASP logging guidance](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+- Diagnostic fields **should** be limited to operational needs. Personal data **should not** be logged. Logs **should** use opaque internal IDs rather than direct identifiers (names, emails). A shared logging policy **must** record purpose, access, and retention for included personal data, including pseudonymous IDs. Personal data **should** be redacted or pseudonymized where appropriate. These rules cover errors and logs; secrets remain prohibited. See [OWASP logging guidance](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
 - Test and development data **should** be synthetic or anonymized, never copied from production.
 - External input follows [boundary parsing](#design-principles).
 - Processes, services, and credentials **should** have least privilege.
@@ -383,7 +383,7 @@ General practices, then [OWASP Top 10:2025](https://owasp.org/Top10/2025/) categ
 **Integrity (A08)**
 
 - Untrusted data **must not** be deserialized into executable objects.
-- Signed inbound payloads **must** pass signature verification and the provider's freshness and replay checks before successful acknowledgment or processing. Preserve original bytes when the signature covers them; use provider verification libraries where available. Inbox deduplication follows Background work and integrations. See [Stripe's webhook example](https://docs.stripe.com/webhooks).
+- Signed inbound payloads **must** pass signature verification and the provider's freshness and replay checks before successful acknowledgment or processing. Original bytes **must** be preserved when the signature covers them. Provider verification libraries **should** be used where available. Inbox deduplication follows Background work and integrations. See [Stripe's webhook example](https://docs.stripe.com/webhooks).
 
 **Logging and alerting (A09).** Security events (authentication failures, authorization denials, privilege changes) **should** be logged and alertable.
 
@@ -561,9 +561,9 @@ Compute optional [CRAP scoring](https://github.com/smonn/coding-standards/blob/m
 - Implement [exhaustiveness](#types) with a fallback `never` check, accepting only compiler-proven unreachable values.
 - Implement [value objects](#types) with brands or tags and parsing constructors. Assertions can forge brands and follow the assertion rule.
 - Unused class and enum members **may** be checked with [knip](https://knip.dev) when the selected dead-code checker does not cover them.
-- Configure unhandled-promise checks to be type-aware and to count `void` as unhandled (for example oxlint's `no-floating-promises` with `ignoreVoid: false`). Review synchronous failure-bearing results separately.
+- Configure unhandled-promise checks to be type-aware and to count `void` as unhandled (for example oxlint's `no-floating-promises` with `ignoreVoid: false`). Review synchronous failure-bearing results separately ([Robustness](#robustness)).
 
-Invariants use a throwing type-guard helper, replacing `!` for required values:
+Invariant checks **should** use a throwing type-guard helper, replacing `!` for required values:
 
 ```ts
 export function invariant(condition: unknown, message: string): asserts condition {
@@ -589,7 +589,7 @@ invariant(household, `Household ${householdId} missing after insert`);
 - Tests **should** be table-driven when cases share a shape.
 - Configure [exhaustive](https://github.com/nishanths/exhaustive) so `default` does not replace named cases when new enum values require changes ([Types](#types)).
 - Go’s linear-time regexp package is exempt from the [backtracking check](#security).
-- `errcheck` detects ignored errors; review assigned errors' subsequent handling.
+- `errcheck` detects ignored errors; review assigned errors' subsequent handling ([Robustness](#robustness)).
 - `go test -cover` measures statements only; Go has no standard branch-coverage tool.
 
 ### Rust (provisional)
@@ -606,5 +606,5 @@ invariant(household, `Household ${householdId} missing after insert`);
 - Integration tests **should** live in `tests/`.
 - The linear-time regex crate is exempt from the [backtracking check](#security); backtracking crates such as fancy-regex are covered.
 - Explicitly enable allow-by-default `clippy::cognitive_complexity` for the [complexity check](#static-analysis-and-deterministic-checks).
-- Compiler `unused_must_use` covers annotated values and functions, denied by `-D warnings`; annotate project-defined must-use values and review remaining failure paths.
+- Compiler `unused_must_use` covers annotated values and functions, denied by `-D warnings`. Project-defined must-use values **must** be annotated. Review remaining failure paths ([Robustness](#robustness)).
 - Branch coverage with `cargo-llvm-cov` needs nightly.
