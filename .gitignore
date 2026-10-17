@@ -1,5 +1,6 @@
 # Agent and editor state
-.claude/
+.claude/worktrees/
+.claude/settings.local.json
 .idea/
 .vscode/
 *.swp
