@@ -11,7 +11,7 @@ Downstream repositories sync only `CODING_STANDARDS.md`. Its guide links work wi
 
 The standards set a high floor of practices, concepts, and broadly applicable conventions. Musts are the floor. Shoulds are high defaults that projects can depart from with a recorded reason, and projects can tighten any rule ([rule levels](CODING_STANDARDS.md#purpose-and-scope)).
 
-Specific tools are suggestions in the guide. Projects own their tool configuration, metric definitions, and measurement mechanics. Where the standards leave such a detail to the project, they require the project to decide and record it. A few headline thresholds, such as coverage and complexity, remain Should defaults. Rules that keep checks honest stay in the standards however mechanical they look: configuration isn't loosened to pass, baselines only tighten, changed lines meet the coverage floor, and waivers are recorded.
+Specific tools are suggestions in the guide. Projects own their tool configuration, metric definitions, and measurement mechanics. Where the standards leave such a detail to the project, they require the project to decide and record it. A few headline thresholds, such as coverage and complexity, remain Should defaults. Rules that keep checks honest stay in the standards however mechanical they look, for example: configuration isn't loosened to pass, baselines only tighten, security findings get individual exceptions, changed lines meet the coverage floor, and waivers are recorded.
 
 This scope guides changes to this repository and adds no coding rules. Where the current standards still contain tool names or project-level detail, that text applies until a change removes it.
 
