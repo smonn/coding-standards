@@ -7,6 +7,14 @@ My standards for code I write or review, by hand or with AI agents. The primary 
 
 Downstream repositories sync only `CODING_STANDARDS.md`. Its guide links work without copying the guide. Propose changes through a pull request.
 
+## Scope
+
+The standards set a high floor of practices, concepts, and broadly applicable conventions. Musts are the floor. Shoulds are high defaults that projects can depart from with a recorded reason, and projects can tighten any rule ([rule levels](CODING_STANDARDS.md#purpose-and-scope)).
+
+Specific tools are suggestions in the guide. Projects own their tool configuration, metric definitions, and measurement mechanics. Where the standards leave such a detail to the project, they require the project to decide and record it. A few headline thresholds, such as coverage and complexity, remain Should defaults. Rules that keep checks honest stay in the standards however mechanical they look, for example: configuration isn't loosened to pass, baselines only tighten, security findings get individual exceptions, changed lines meet the coverage floor, and waivers are recorded.
+
+This scope guides changes to this repository and adds no coding rules. Where the current standards still contain tool names or project-level detail, that text applies until a change removes it.
+
 ## Goals
 
 These goals guide changes to this repository; they add no coding rules or exceptions. In priority order:
@@ -23,6 +31,7 @@ Readability takes priority when consolidation makes rules harder to apply. Local
 
 - A universal consensus standard for every team.
 - A comprehensive programming textbook or tool catalog.
+- Project-specific tool configuration, metric definitions, or measurement mechanics.
 - Minimizing word or token counts as an end in itself.
 - Language coverage without concrete use in my projects. This guides future additions; existing provisional Go and Rust guidance remains.
 
